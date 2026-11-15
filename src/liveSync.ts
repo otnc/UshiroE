@@ -1,6 +1,6 @@
 import { type Disposable, EventEmitter, l10n, window } from "vscode";
 
-import { type ImageLookup, buildLiveConfig } from "./core/resolve";
+import { type ImageResolver, buildLiveConfig } from "./core/resolve";
 import type { LiveStore } from "./liveStore";
 import { readSettings } from "./settings";
 
@@ -14,7 +14,7 @@ export class LiveSync implements Disposable {
 
   constructor(
     private readonly store: LiveStore,
-    private readonly imagesOf: ImageLookup
+    private readonly resolver: ImageResolver
   ) {}
 
   /** Coalesces bursts of changes, such as several settings written one after another. */
@@ -25,7 +25,7 @@ export class LiveSync implements Disposable {
 
   async sync(): Promise<void> {
     try {
-      await this.store.write(buildLiveConfig(readSettings(), this.cycle, this.imagesOf));
+      await this.store.write(buildLiveConfig(readSettings(), this.cycle, this.resolver));
     } catch (error) {
       void window.showErrorMessage(
         l10n.t("UshiroE could not save its live configuration: {0}", String(error))

@@ -1,49 +1,57 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultSettings } from "../src/core/model";
-import { normalizeSettings } from "../src/core/normalize";
-import { matchesPreset, pickRandomPreset, presetFromSettings } from "../src/core/presets";
+import { normalizeSettings, parseImageRef } from "../src/core/normalize";
+import { createPreset, imageRef, moveItem, withoutSources } from "../src/core/presets";
 
 describe("presets", () => {
-  it("captures the layout and matches it until something changes", () => {
-    const settings = defaultSettings();
-    settings.mode = "parts";
-    const preset = presetFromSettings("work", settings);
-    expect(preset).toMatchObject({ name: "work", mode: "parts" });
-    expect(matchesPreset(preset, settings)).toBe(true);
-    settings.areas.editor.opacity = 0.5;
-    expect(matchesPreset(preset, settings)).toBe(false);
+  it("start empty, from top to bottom, every 60 seconds", () => {
+    expect(createPreset("Night")).toMatchObject({
+      name: "Night",
+      images: [],
+      random: false,
+      interval: 60,
+      changeOnStartupOnly: false,
+    });
   });
 
-  it("picks a preset other than the one shown when there is a choice", () => {
-    const settings = defaultSettings();
-    const shown = presetFromSettings("shown", settings);
-    const other = { ...presetFromSettings("other", settings), mode: "parts" as const };
-    settings.presets = [shown, other];
-    for (const value of [0, 0.5, 0.99]) {
-      expect(pickRandomPreset(settings, () => value)?.name).toBe("other");
-    }
-    settings.presets = [shown];
-    expect(pickRandomPreset(settings)?.name).toBe("shown");
-    settings.presets = [];
-    expect(pickRandomPreset(settings)).toBeNull();
+  it("reference images as <source id>/<file name>", () => {
+    const ref = imageRef("src1", "0123abcd.png");
+    expect(ref).toBe("src1/0123abcd.png");
+    expect(parseImageRef(ref)).toEqual({ sourceId: "src1", file: "0123abcd.png" });
+    expect(parseImageRef("no-slash")).toBeNull();
+    expect(parseImageRef("trailing/")).toBeNull();
   });
 
-  it("normalizes presets and clears references to removed sources", () => {
+  it("move items one place and stay inside the list", () => {
+    expect(moveItem(["a", "b", "c"], 0, 1)).toEqual(["b", "a", "c"]);
+    expect(moveItem(["a", "b", "c"], 2, -1)).toEqual(["a", "c", "b"]);
+    expect(moveItem(["a", "b", "c"], 0, -1)).toEqual(["a", "b", "c"]);
+    expect(moveItem(["a", "b", "c"], 2, 1)).toEqual(["a", "b", "c"]);
+    expect(moveItem(["a", "b", "c"], -1, 1)).toEqual(["a", "b", "c"]);
+  });
+
+  it("drop the images of a removed source", () => {
+    const preset = { ...createPreset("Mix"), images: ["a/1.png", "b/2.png", "ab/3.png"] };
+    expect(withoutSources(preset, "a").images).toEqual(["b/2.png", "ab/3.png"]);
+  });
+
+  it("are normalized from settings.json", () => {
     const settings = normalizeSettings({
-      sources: [{ id: "a", type: "file", path: "/a.png" }],
       presets: [
-        {
-          id: "p",
-          name: "night",
-          mode: "parts",
-          areas: { editor: { enabled: true, source: "gone" } },
-        },
+        { id: "p", name: "Night", images: ["s/1.png", 3, "bad"], random: true },
         { name: "  " },
         { id: "p", name: "duplicate" },
       ],
     });
-    expect(settings.presets).toHaveLength(1);
-    expect(settings.presets[0].areas.editor).toMatchObject({ enabled: true, source: null });
+    expect(settings.presets).toEqual([
+      {
+        id: "p",
+        name: "Night",
+        images: ["s/1.png"],
+        random: true,
+        interval: 60,
+        changeOnStartupOnly: false,
+      },
+    ]);
   });
 });

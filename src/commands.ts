@@ -38,6 +38,7 @@ function newSource(type: SourceType, path: string, refresh: UrlRefresh = "never"
     random: false,
     interval: DEFAULT_INTERVAL_SECONDS,
     recursive: false,
+    changeOnStartupOnly: false,
     refresh,
   };
 }
@@ -126,7 +127,7 @@ export async function addImageUrl(library: LibraryManager): Promise<void> {
   const source = newSource("url", url, refresh.value);
   // Downloading before adding reports a bad URL right away instead of adding a broken source.
   await library.sync([source], { refreshUrls: () => true, visible: true });
-  if (library.lookup(source).length > 0) {
+  if (library.resolver.imagesOf(source).length > 0) {
     await addAndShow([source]);
   }
 }

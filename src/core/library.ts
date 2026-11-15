@@ -75,29 +75,59 @@ export class ImageLibrary {
   }
 
   /**
-   * The images of a source in display order: the imported ones first, then any image the user
-   * dropped into the source's folder. Empty until the source has been imported.
+   * File names of a source's images in display order: the listed ones first, then any image
+   * the user dropped into the source's folder. Empty until the source has been imported.
    */
-  images(source: ImageSource): string[] {
-    const manifest = this.readManifest(source.id);
+  fileNames(sourceId: string): string[] {
+    const manifest = this.readManifest(sourceId);
     if (!manifest) {
       return [];
     }
-    const dir = this.dirFor(source.id);
-    const listed = new Set(manifest.files);
-    let extra: string[] = [];
+    const dir = this.dirFor(sourceId);
+    let present: string[];
     try {
-      extra = fs
-        .readdirSync(dir)
-        .filter((name) => !listed.has(name) && isSupportedImage(name))
-        .sort(naturalCompare);
+      present = fs.readdirSync(dir).filter((name) => isSupportedImage(name));
     } catch {
-      // The folder was removed; nothing to show.
+      return [];
     }
-    return [...manifest.files, ...extra]
-      .map((file) => path.join(dir, file))
-      .filter((file) => fs.existsSync(file))
-      .slice(0, MAX_FOLDER_IMAGES);
+    const existing = new Set(present);
+    const listed = manifest.files.filter((name) => existing.has(name));
+    const extra = present.filter((name) => !manifest.files.includes(name)).sort(naturalCompare);
+    return [...listed, ...extra].slice(0, MAX_FOLDER_IMAGES);
+  }
+
+  /** The image files of a source in display order. */
+  images(source: ImageSource): string[] {
+    const dir = this.dirFor(source.id);
+    return this.fileNames(source.id).map((name) => path.join(dir, name));
+  }
+
+  /** The file a preset reference points at, or null when it is gone. */
+  fileOf(sourceId: string, name: string): string | null {
+    const file = path.join(this.dirFor(sourceId), path.basename(name));
+    return fs.existsSync(file) ? file : null;
+  }
+
+  /** Stores a new order for a source's images; names that are not there are ignored. */
+  async reorder(source: ImageSource, names: readonly string[]): Promise<void> {
+    const present = new Set(this.fileNames(source.id));
+    await this.writeManifest(
+      source,
+      names.filter((name) => present.has(name))
+    );
+  }
+
+  /** Deletes one image from a source's folder. */
+  async removeImage(source: ImageSource, name: string): Promise<void> {
+    const files = this.fileNames(source.id);
+    if (!files.includes(name)) {
+      return;
+    }
+    await fs.promises.rm(path.join(this.dirFor(source.id), name), { force: true });
+    await this.writeManifest(
+      source,
+      files.filter((file) => file !== name)
+    );
   }
 
   /**

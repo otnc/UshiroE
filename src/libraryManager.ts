@@ -17,7 +17,9 @@ import {
 import { ImageLibrary } from "./core/library";
 import { IMAGE_EXTENSIONS, type ImageSource, type UshiroeSettings } from "./core/model";
 import { picturesDir } from "./core/picturesDir";
-import type { ImageLookup } from "./core/resolve";
+import { parseImageRef } from "./core/normalize";
+import { moveItem } from "./core/presets";
+import type { ImageResolver } from "./core/resolve";
 import { readLibraryFolder, readSettings, setLibraryFolder } from "./settings";
 
 interface SyncOptions {
@@ -62,7 +64,52 @@ export class LibraryManager implements Disposable {
     return this.current;
   }
 
-  readonly lookup: ImageLookup = (source) => this.library.images(source);
+  readonly resolver: ImageResolver = {
+    imagesOf: (source) => this.library.images(source),
+    fileOf: (ref) => {
+      const parsed = parseImageRef(ref);
+      return parsed ? this.library.fileOf(parsed.sourceId, parsed.file) : null;
+    },
+  };
+
+  /** Moves one image of a source up or down. */
+  async moveImage(id: unknown, name: unknown, delta: number): Promise<void> {
+    const source = this.find(id);
+    if (!source || typeof name !== "string") {
+      return;
+    }
+    await this.enqueue(async () => {
+      const names = this.library.fileNames(source.id);
+      await this.library.reorder(source, moveItem(names, names.indexOf(name), delta));
+      this.changed.fire();
+    });
+  }
+
+  /** Deletes one image from a source's folder in the library. */
+  async removeImage(id: unknown, name: unknown): Promise<void> {
+    const source = this.find(id);
+    if (!source || typeof name !== "string") {
+      return;
+    }
+    const remove = l10n.t("Delete");
+    const choice = await window.showWarningMessage(
+      l10n.t("Delete this image from UshiroE's image folder?"),
+      {
+        modal: true,
+        detail: l10n.t(
+          "The copy in the image folder is deleted. An image you put into the folder yourself is deleted for good."
+        ),
+      },
+      remove
+    );
+    if (choice !== remove) {
+      return;
+    }
+    await this.enqueue(async () => {
+      await this.library.removeImage(source, name);
+      this.changed.fire();
+    });
+  }
 
   get root(): string {
     return this.library.root;

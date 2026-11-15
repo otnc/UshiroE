@@ -66,6 +66,7 @@
     "eslint": "^10.15.0",
     "git-cliff": "^2.14.2",
     "globals": "^17.14.0",
+    "happy-dom": "^21.0.4",
     "kiritan": "^0.7.1",
     "mocha": "^12.0.3",
     "prettier": "^3.10.1",
@@ -188,26 +189,15 @@
         "category": "UshiroE"
       },
       {
-        "command": "ushiroe.savePreset",
-        "title": "%command.savePreset%",
+        "command": "ushiroe.newPreset",
+        "title": "%command.newPreset%",
         "category": "UshiroE",
-        "icon": "$(save)"
-      },
-      {
-        "command": "ushiroe.applyPreset",
-        "title": "%command.applyPreset%",
-        "category": "UshiroE"
+        "icon": "$(add)"
       },
       {
         "command": "ushiroe.deletePreset",
         "title": "%command.deletePreset%",
         "category": "UshiroE"
-      },
-      {
-        "command": "ushiroe.randomPreset",
-        "title": "%command.randomPreset%",
-        "category": "UshiroE",
-        "icon": "$(debug-restart)"
       },
       {
         "command": "ushiroe.restoreWorkbench",
@@ -273,16 +263,6 @@
           "when": "view == ushiroe.panel"
         },
         {
-          "command": "ushiroe.randomPreset",
-          "group": "3_random@1",
-          "when": "view == ushiroe.panel"
-        },
-        {
-          "command": "ushiroe.savePreset",
-          "group": "3_random@2",
-          "when": "view == ushiroe.panel"
-        },
-        {
           "command": "ushiroe.refreshImages",
           "group": "4_library@1",
           "when": "view == ushiroe.panel"
@@ -295,6 +275,11 @@
         {
           "command": "ushiroe.restoreWorkbench",
           "group": "1_patch@3",
+          "when": "view == ushiroe.panel"
+        },
+        {
+          "command": "ushiroe.newPreset",
+          "group": "3_presets@1",
           "when": "view == ushiroe.panel"
         }
       ],
@@ -371,14 +356,14 @@
               },
               "random": {
                 "type": "boolean",
-                "default": false,
-                "description": "%config.source.random%"
+                "description": "%config.rotation.random%",
+                "default": false
               },
               "interval": {
                 "type": "number",
-                "default": 10,
                 "minimum": 0,
-                "description": "%config.source.interval%"
+                "description": "%config.rotation.interval%",
+                "default": 10
               },
               "recursive": {
                 "type": "boolean",
@@ -397,6 +382,11 @@
                 ],
                 "default": "never",
                 "description": "%config.source.refresh%"
+              },
+              "changeOnStartupOnly": {
+                "type": "boolean",
+                "description": "%config.rotation.changeOnStartupOnly%",
+                "default": false
               }
             }
           }
@@ -674,13 +664,32 @@
           "order": 8,
           "markdownDescription": "%config.transition%"
         },
-        "ushiroe.shuffleInterval": {
-          "type": "number",
-          "default": 0,
-          "minimum": 0,
+        "ushiroe.allImages": {
+          "type": "object",
           "scope": "application",
           "order": 9,
-          "markdownDescription": "%config.shuffleInterval%"
+          "markdownDescription": "%config.allImages%",
+          "additionalProperties": false,
+          "properties": {
+            "random": {
+              "type": "boolean",
+              "description": "%config.rotation.random%"
+            },
+            "interval": {
+              "type": "number",
+              "minimum": 0,
+              "description": "%config.rotation.interval%"
+            },
+            "changeOnStartupOnly": {
+              "type": "boolean",
+              "description": "%config.rotation.changeOnStartupOnly%"
+            }
+          },
+          "default": {
+            "random": true,
+            "interval": 60,
+            "changeOnStartupOnly": false
+          }
         },
         "ushiroe.presets": {
           "type": "array",
@@ -701,25 +710,28 @@
               "name": {
                 "type": "string"
               },
-              "mode": {
-                "type": "string",
-                "enum": [
-                  "fullscreen",
-                  "parts"
-                ]
+              "images": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "%config.preset.images%"
               },
-              "areas": {
-                "type": "object"
+              "random": {
+                "type": "boolean",
+                "description": "%config.rotation.random%"
+              },
+              "interval": {
+                "type": "number",
+                "minimum": 0,
+                "description": "%config.rotation.interval%"
+              },
+              "changeOnStartupOnly": {
+                "type": "boolean",
+                "description": "%config.rotation.changeOnStartupOnly%"
               }
             }
           }
-        },
-        "ushiroe.randomPresetOnStartup": {
-          "type": "boolean",
-          "default": false,
-          "scope": "application",
-          "order": 11,
-          "markdownDescription": "%config.randomPresetOnStartup%"
         },
         "ushiroe.libraryFolder": {
           "type": "string",

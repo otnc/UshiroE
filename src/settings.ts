@@ -6,9 +6,12 @@ import {
   type AreaSettings,
   type ImageSource,
   type Mode,
+  PRESET_PREFIX,
   type Preset,
+  type Rotation,
   type UshiroeSettings,
 } from "./core/model";
+import { moveItem, withoutSources } from "./core/presets";
 import { oneOf } from "./core/guards";
 import { areaToConfigValue, normalizeSettings, sourceToConfigValue } from "./core/normalize";
 import { BACKIMAGE_PRIORITIES, type BackImagePriority } from "./core/ownership";
@@ -26,9 +29,8 @@ export function readSettings(): UshiroeSettings {
     mode: current.get("mode"),
     sources: current.get("sources"),
     transition: current.get("transition"),
-    shuffleInterval: current.get("shuffleInterval"),
+    allImages: current.get("allImages"),
     presets: current.get("presets"),
-    randomPresetOnStartup: current.get("randomPresetOnStartup"),
     ...Object.fromEntries(AREA_IDS.map((id) => [id, current.get(id)])),
   });
 }
@@ -88,12 +90,41 @@ export function setPresets(presets: Preset[]): Promise<void> {
   return write("presets", presets);
 }
 
-export function setShuffleInterval(seconds: number): Promise<void> {
-  return write("shuffleInterval", Math.max(0, seconds));
+export async function updateAllImages(patch: Partial<Rotation>): Promise<void> {
+  await write("allImages", { ...readSettings().allImages, ...patch });
 }
 
-export function setRandomPresetOnStartup(value: boolean): Promise<void> {
-  return write("randomPresetOnStartup", value);
+/** Changes one preset in place; does nothing when the preset is gone. */
+export async function updatePreset(id: string, change: (preset: Preset) => Preset): Promise<void> {
+  const presets = readSettings().presets;
+  if (presets.some((preset) => preset.id === id)) {
+    await setPresets(
+      presets.map((preset) => (preset.id === id ? { ...change(preset), id } : preset))
+    );
+  }
+}
+
+/** Removes a preset and clears the areas that showed it. */
+export async function removePreset(id: string): Promise<void> {
+  const settings = readSettings();
+  await setPresets(settings.presets.filter((preset) => preset.id !== id));
+  for (const areaId of AREA_IDS) {
+    if (settings.areas[areaId].source === PRESET_PREFIX + id) {
+      await updateArea(areaId, { source: null });
+    }
+  }
+}
+
+/** Moves a source up or down the list, which is also the order of All images. */
+export async function moveSource(id: string, delta: number): Promise<void> {
+  const sources = readSettings().sources;
+  await setSources(
+    moveItem(
+      sources,
+      sources.findIndex((source) => source.id === id),
+      delta
+    )
+  );
 }
 
 export async function updateArea(id: AreaId, patch: Partial<AreaSettings>): Promise<void> {
@@ -108,10 +139,6 @@ async function writeLayout(mode: Mode, areas: Record<AreaId, AreaSettings>): Pro
   await write("mode", mode);
 }
 
-export function applyPreset(preset: Preset): Promise<void> {
-  return writeLayout(preset.mode, preset.areas);
-}
-
 export async function updateSource(id: string, patch: Partial<ImageSource>): Promise<void> {
   const sources = readSettings().sources.map((source) =>
     source.id === id ? { ...source, ...patch, id } : source
@@ -122,6 +149,9 @@ export async function updateSource(id: string, patch: Partial<ImageSource>): Pro
 export async function removeSource(id: string): Promise<void> {
   const settings = readSettings();
   await setSources(settings.sources.filter((source) => source.id !== id));
+  if (settings.presets.some((preset) => preset.images.some((ref) => ref.startsWith(`${id}/`)))) {
+    await setPresets(settings.presets.map((preset) => withoutSources(preset, id)));
+  }
   for (const areaId of AREA_IDS) {
     if (settings.areas[areaId].source === id) {
       await updateArea(areaId, { source: null });
@@ -138,8 +168,7 @@ export async function replaceSettings(settings: UshiroeSettings): Promise<void> 
   await setPresets(settings.presets);
   await writeLayout(settings.mode, settings.areas);
   await write("transition", settings.transition);
-  await write("shuffleInterval", settings.shuffleInterval);
-  await write("randomPresetOnStartup", settings.randomPresetOnStartup);
+  await write("allImages", settings.allImages);
   await write("enabled", settings.enabled);
 }
 

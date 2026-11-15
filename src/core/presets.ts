@@ -1,40 +1,40 @@
-import {
-  AREA_IDS,
-  type AreaId,
-  type AreaSettings,
-  type Preset,
-  type UshiroeSettings,
-  createId,
-} from "./model";
+import { type Preset, createId } from "./model";
 
-function copyAreas(areas: Record<AreaId, AreaSettings>): Record<AreaId, AreaSettings> {
-  return Object.fromEntries(AREA_IDS.map((id) => [id, { ...areas[id] }])) as Record<
-    AreaId,
-    AreaSettings
-  >;
+/** The reference a preset stores for an image in the image folder. */
+export function imageRef(sourceId: string, file: string): string {
+  return `${sourceId}/${file}`;
 }
 
-export function presetFromSettings(name: string, settings: UshiroeSettings): Preset {
-  return { id: createId(), name, mode: settings.mode, areas: copyAreas(settings.areas) };
-}
-
-/** True when the settings currently show exactly what the preset describes. */
-export function matchesPreset(preset: Preset, settings: UshiroeSettings): boolean {
-  return (
-    preset.mode === settings.mode &&
-    AREA_IDS.every((id) => JSON.stringify(preset.areas[id]) === JSON.stringify(settings.areas[id]))
-  );
+export function createPreset(name: string): Preset {
+  return {
+    id: createId(),
+    name,
+    images: [],
+    random: false,
+    interval: 60,
+    changeOnStartupOnly: false,
+  };
 }
 
 /**
- * Picks a preset at random, avoiding the one that is currently shown when there is a choice,
- * so "random" always visibly changes something.
+ * Moves the item at `index` by `delta` places, clamped to the list. Returns a new list, or the
+ * same list when nothing moves.
  */
-export function pickRandomPreset(
-  settings: UshiroeSettings,
-  random: () => number = Math.random
-): Preset | null {
-  const others = settings.presets.filter((preset) => !matchesPreset(preset, settings));
-  const pool = others.length > 0 ? others : settings.presets;
-  return pool.length === 0 ? null : pool[Math.floor(random() * pool.length)];
+export function moveItem<T>(list: readonly T[], index: number, delta: number): T[] {
+  const target = Math.min(list.length - 1, Math.max(0, index + delta));
+  if (index < 0 || index >= list.length || target === index) {
+    return [...list];
+  }
+  const next = [...list];
+  const [item] = next.splice(index, 1);
+  next.splice(target, 0, item);
+  return next;
+}
+
+/** Drops images whose source no longer exists, for example after a source was removed. */
+export function withoutSources(preset: Preset, removedSourceId: string): Preset {
+  return {
+    ...preset,
+    images: preset.images.filter((ref) => !ref.startsWith(`${removedSourceId}/`)),
+  };
 }

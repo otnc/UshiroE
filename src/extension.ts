@@ -15,13 +15,7 @@ import { LiveSync } from "./liveSync";
 import { BackImageMigration } from "./migration/backimageFlow";
 import { PatchManager } from "./patchManager";
 import { Patcher } from "./patcher";
-import {
-  applyPresetCommand,
-  applyRandomPreset,
-  applyRandomPresetOnStartup,
-  deletePreset,
-  savePreset,
-} from "./presetCommands";
+import { deletePreset, newPreset } from "./presetCommands";
 import { SECTION, readSettings, setEnabled } from "./settings";
 import { PanelViewProvider } from "./ui/panelView";
 
@@ -48,7 +42,7 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
   );
   const patch = new PatchManager(context, patcher);
   const library = new LibraryManager();
-  const live = new LiveSync(store, library.lookup);
+  const live = new LiveSync(store, library.resolver);
   const migration = new BackImageMigration(context, patch);
   const panel = new PanelViewProvider(context.extensionUri, patch, library, live, migration);
 
@@ -94,10 +88,8 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
       await fs.promises.mkdir(library.root, { recursive: true });
       await env.openExternal(Uri.file(library.root));
     }),
-    commands.registerCommand("ushiroe.savePreset", savePreset),
-    commands.registerCommand("ushiroe.applyPreset", applyPresetCommand),
+    commands.registerCommand("ushiroe.newPreset", newPreset),
     commands.registerCommand("ushiroe.deletePreset", deletePreset),
-    commands.registerCommand("ushiroe.randomPreset", applyRandomPreset),
     commands.registerCommand("ushiroe.repairPatch", () => patch.ensure("manual")),
     commands.registerCommand("ushiroe.removePatch", () => patch.remove()),
     commands.registerCommand("ushiroe.restoreWorkbench", () => patch.restoreWorkbench()),
@@ -114,7 +106,6 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
     )
   );
 
-  await applyRandomPresetOnStartup(context);
   await live.sync();
   await patch.refresh();
   // Not awaited: dialogs and administrator prompts must not hold up activation.

@@ -5,7 +5,7 @@ export const LIVE_CONFIG_VERSION = 1;
 
 export interface LiveArea {
   id: AreaId;
-  /** URLs the workbench can load directly (`vscode-file:` or `https:`). */
+  /** `vscode-file:` URLs of the images, in play order. */
   images: string[];
   opacity: number;
   size: Size;
@@ -14,6 +14,11 @@ export interface LiveArea {
   random: boolean;
   /** Milliseconds between image changes; 0 disables rotation. */
   interval: number;
+  /**
+   * Move on once per window start instead of on a timer. Optional, so a runtime patched in by an
+   * older UshiroE keeps reading the config.
+   */
+  changeOnStartupOnly?: boolean;
 }
 
 /**

@@ -43,6 +43,7 @@ describe("convertBackImageState", () => {
         interval: 10,
         recursive: false,
         refresh: "never",
+        changeOnStartupOnly: false,
       },
       {
         id: "2",
@@ -54,6 +55,7 @@ describe("convertBackImageState", () => {
         interval: 30,
         recursive: false,
         refresh: "never",
+        changeOnStartupOnly: false,
       },
     ]);
     expect(settings?.areas.fullscreen.source).toBe("2");
