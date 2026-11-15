@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.1.1]
+
+### Added
+
+- Implement background overlay with cross-fade animations for images
+- Add patch repair notifications for outdated backgrounds and improve related messages
+
 ## [0.1.0]
 
 ### Added
