@@ -4,7 +4,14 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["**/out/**", "**/dist/**", "*.vsix", "**/.vscode-test/**", ".agents/**"],
+    ignores: [
+      "**/out/**",
+      "**/dist/**",
+      "*.vsix",
+      "**/.vscode-test/**",
+      ".agents/**",
+      "test/fixtures/**",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

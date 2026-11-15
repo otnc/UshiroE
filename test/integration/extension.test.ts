@@ -6,6 +6,7 @@ import path from "node:path";
 import * as vscode from "vscode";
 
 import type { UshiroeApi } from "../../src/extension";
+import { vscodeChecksum } from "../../src/workbench/patch";
 
 const EXTENSION_ID = "otoneko1102.ushiroe";
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -98,9 +99,29 @@ describe("UshiroE in VS Code", function () {
     assert.match(path.basename(copies[0]), /^[0-9a-f]{16}\.png$/);
   });
 
+  it("runs with in-memory shared storage, so tests never touch real sign-ins", () => {
+    // The extension log folder is <session>/window1/exthost/<extension id>.
+    const mainLog = path.join(api.logDir, "..", "..", "..", "main.log");
+    const text = fs.readFileSync(mainLog, "utf8");
+    const paths = [...text.matchAll(/Creating shared storage database at '([^']*)'/g)].map(
+      (match) => match[1]
+    );
+    assert.deepEqual(
+      paths.filter((value) => value !== ":memory:"),
+      [],
+      "the test instance must not open ~/.vscode-shared"
+    );
+    assert.doesNotMatch(text, /\.vscode-shared/);
+  });
+
   it("patches the workbench, shows the copies in the live config and removes the patch", async () => {
     assert.equal(await api.patcher.apply(true), true);
-    assert.equal((await api.patcher.status()).state, "applied");
+    const status = await api.patcher.status();
+    assert.equal(status.state, "applied");
+    assert.equal(status.problem, null, "the patched script passes the checksum check");
+    const editor = api.patcher.editor;
+    const snapshot = await editor.read();
+    assert.equal(snapshot.productChecksum, vscodeChecksum(snapshot.scriptBytes));
 
     // With the patch already applied, turning the background on needs no consent dialog.
     await config().update("fullscreen", { source: "it" }, vscode.ConfigurationTarget.Global);
