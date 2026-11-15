@@ -465,7 +465,7 @@ function renderPreset(preset: PresetView, current: State): string {
       ${rotationFields("preset", preset.id, preset)}
       <div class="field"><span>${escapeHtml(t.imageOrder)}</span>${entries}</div>
       <details class="picker" data-details="${escapeHtml(pickerId)}"${openDetails.has(pickerId) ? " open" : ""}>
-        <summary>${icon("add")} ${escapeHtml(t.addToPreset)}</summary>
+        <summary>${escapeHtml(t.addToPreset)}</summary>
         <p class="hint">${escapeHtml(t.addToPresetHint)}</p>
         ${picker || `<p class="empty">${escapeHtml(t.noSources)}</p>`}
       </details>
