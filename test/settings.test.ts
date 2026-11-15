@@ -165,6 +165,21 @@ describe("buildCss", () => {
     expect(css).toContain("var(--ushiroe-editor-image)");
   });
 
+  it("keeps the full-window layer below the title bar, also when blurred", () => {
+    const fullscreen = { ...area, id: "fullscreen" as const };
+    const plain = buildCss({ v: 1, enabled: true, transition: 1, areas: [fullscreen], cycle: 0 });
+    expect(plain).toContain("top: var(--ushiroe-titlebar-height, 0px)");
+    const blurred = buildCss({
+      v: 1,
+      enabled: true,
+      transition: 1,
+      areas: [{ ...fullscreen, blur: 5 }],
+      cycle: 0,
+    });
+    expect(blurred).toContain("top: calc(var(--ushiroe-titlebar-height, 0px) - 10px)");
+    expect(blurred).toContain("clip-path: inset(10px 0 0 0)");
+  });
+
   it("cannot be broken out of by a custom position", () => {
     expect(sanitizePosition("center; } body { display: none")).toBe("center  body  display: none");
     expect(sanitizePosition(";;")).toBe("center");

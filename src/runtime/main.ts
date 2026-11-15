@@ -1,5 +1,5 @@
 import { LIVE_CONFIG_VERSION, type LiveArea, type LiveConfig } from "../core/live";
-import { buildCss, cssUrl, cssVariable } from "./css";
+import { TITLEBAR_HEIGHT_VARIABLE, buildCss, cssUrl, cssVariable } from "./css";
 
 export interface RuntimeBoot {
   /** `vscode-file:` URL of the live config JSON written by the extension. */
@@ -50,6 +50,36 @@ function pickNextIndex(state: AreaState): number {
   return (state.index + offset) % count;
 }
 
+/**
+ * Keeps {@link TITLEBAR_HEIGHT_VARIABLE} equal to the bottom edge of the custom title bar, or 0
+ * when VS Code uses the native one. The title bar is created after this script runs and can be
+ * rebuilt when the layout changes, so it is looked up again periodically.
+ */
+function trackTitlebar(root: HTMLElement): void {
+  let observed: Element | null = null;
+  const update = () => {
+    const bottom = observed?.isConnected ? observed.getBoundingClientRect().bottom : 0;
+    root.style.setProperty(TITLEBAR_HEIGHT_VARIABLE, `${Math.max(0, Math.round(bottom))}px`);
+  };
+  const resize = new ResizeObserver(update);
+  const attach = () => {
+    const titlebar = document.getElementById("workbench.parts.titlebar");
+    if (titlebar === observed) {
+      return;
+    }
+    if (observed) {
+      resize.unobserve(observed);
+    }
+    observed = titlebar;
+    if (titlebar) {
+      resize.observe(titlebar);
+    }
+    update();
+  };
+  attach();
+  setInterval(attach, 2000);
+}
+
 export function start(boot: RuntimeBoot): void {
   const globalScope = window as unknown as Record<string, unknown>;
   if (globalScope[STARTED_FLAG]) {
@@ -60,6 +90,7 @@ export function start(boot: RuntimeBoot): void {
   const style = document.createElement("style");
   style.id = "ushiroe-style";
   const root = document.documentElement;
+  trackTitlebar(root);
   let states: AreaState[] = [];
   let current: LiveConfig | undefined;
   let lastText = "";

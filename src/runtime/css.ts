@@ -36,16 +36,33 @@ export function cssUrl(url: string): string {
   return `url("${url.replace(/["\\\n\r]/g, (char) => encodeURIComponent(char))}")`;
 }
 
+/** Height of the custom title bar (File, Edit, ...), kept up to date by the runtime. */
+export const TITLEBAR_HEIGHT_VARIABLE = "--ushiroe-titlebar-height";
+
+/**
+ * Where the layer sits. The fullscreen layer starts below the title bar, so the menu bar stays
+ * clear. Blur pulls transparent pixels in from outside the box: the fullscreen layer bleeds past
+ * the window edges to hide that soft edge and is clipped back at the title bar; a part layer
+ * cannot bleed, because it would cover its neighbours.
+ */
+function placement(area: LiveArea): string {
+  if (area.id !== "fullscreen") {
+    return "position: absolute; inset: 0;";
+  }
+  const top = `var(${TITLEBAR_HEIGHT_VARIABLE}, 0px)`;
+  if (area.blur <= 0) {
+    return `position: fixed; inset: 0; top: ${top};`;
+  }
+  const bleed = area.blur * 2;
+  return `position: fixed; inset: -${bleed}px; top: calc(${top} - ${bleed}px); clip-path: inset(${bleed}px 0 0 0);`;
+}
+
 function areaRule(area: LiveArea, transition: number): string {
   const isFullscreen = area.id === "fullscreen";
   const blur = area.blur > 0 ? `filter: blur(${area.blur}px);` : "";
-  // Blur pulls transparent pixels in from outside the box. The fullscreen layer can bleed past the
-  // window edge to hide that soft edge; a part layer cannot, because it would cover its neighbours.
-  const inset = isFullscreen && area.blur > 0 ? `inset: ${-area.blur * 2}px;` : "inset: 0;";
   return `${AREA_SELECTORS[area.id]} {
   content: "";
-  position: ${isFullscreen ? "fixed" : "absolute"};
-  ${inset}
+  ${placement(area)}
   pointer-events: none;
   z-index: ${isFullscreen ? 2147483000 : 99};
   opacity: ${area.opacity};
