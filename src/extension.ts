@@ -100,8 +100,9 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
   await applyRandomPresetOnStartup(context);
   await live.sync();
   await patch.refresh();
+  // Not awaited: the consent dialog or an administrator prompt must not hold up activation.
   if (wasEnabled) {
-    await patch.ensure("startup");
+    void patch.ensure("startup");
   }
   // Copying and downloading can take a while; the live config follows once they finish.
   void library.startup();
