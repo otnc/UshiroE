@@ -1,38 +1,44 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_INTERVAL_SECONDS, type ImageSource, type PartId, type UshiroeSettings, defaultSettings } from "../core/model";
+import {
+  DEFAULT_INTERVAL_SECONDS,
+  type ImageSource,
+  type PartId,
+  type UshiroeSettings,
+  defaultSettings,
+} from "../core/model";
 import { defaultSourceName } from "../core/normalize";
 
 export const BACKIMAGE_EXTENSION_ID = "ROBOTofficial.backimage";
 
 /** The `globalState` object BackImage 1.x stores under its extension id. */
 interface BackImageState {
-    imageLists?: unknown;
-    elementsRandom?: unknown;
-    elementsInterval?: unknown;
-    elementsOpacity?: unknown;
-    backgroundImg?: unknown;
-    backgroundType?: unknown;
-    enable?: unknown;
+  imageLists?: unknown;
+  elementsRandom?: unknown;
+  elementsInterval?: unknown;
+  elementsOpacity?: unknown;
+  backgroundImg?: unknown;
+  backgroundType?: unknown;
+  enable?: unknown;
 }
 
 const PART_NAMES: Record<string, PartId> = {
-    editor: "editor",
-    panel: "panel",
-    "side-bar": "sidebar",
+  editor: "editor",
+  panel: "panel",
+  "side-bar": "sidebar",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function numberOr(value: unknown, fallback: number): number {
-    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function clampOpacity(value: number): number {
-    return Math.min(1, Math.max(0, value));
+  return Math.min(1, Math.max(0, value));
 }
 
 /**
@@ -43,72 +49,81 @@ function clampOpacity(value: number): number {
  * describe the image. Intervals move from milliseconds to seconds.
  */
 export function convertBackImageState(raw: unknown): UshiroeSettings | null {
-    if (!isRecord(raw)) {
-        return null;
-    }
-    const state = raw as BackImageState;
-    const settings = defaultSettings();
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const state = raw as BackImageState;
+  const settings = defaultSettings();
 
-    const randoms = isRecord(state.elementsRandom) ? state.elementsRandom : {};
-    const intervals = isRecord(state.elementsInterval) ? state.elementsInterval : {};
-    const lists = Array.isArray(state.imageLists) ? state.imageLists : [];
-    for (const item of lists) {
-        if (!isRecord(item) || typeof item.path !== "string" || item.path === "") {
-            continue;
-        }
-        const id = typeof item.id === "string" && item.id !== "" ? item.id : item.path;
-        const source: ImageSource = {
-            id,
-            name: typeof item.name === "string" && item.name.trim() !== "" ? item.name.trim() : defaultSourceName(item.path),
-            type: item.type === "folder" ? "folder" : "file",
-            path: item.path,
-            description: typeof item.description === "string" ? item.description : "",
-            random: randoms[id] === true,
-            interval: Math.max(0, numberOr(intervals[id], DEFAULT_INTERVAL_SECONDS * 1000) / 1000),
-            recursive: false,
-        };
-        if (!settings.sources.some((existing) => existing.id === source.id)) {
-            settings.sources.push(source);
-        }
+  const randoms = isRecord(state.elementsRandom) ? state.elementsRandom : {};
+  const intervals = isRecord(state.elementsInterval) ? state.elementsInterval : {};
+  const lists = Array.isArray(state.imageLists) ? state.imageLists : [];
+  for (const item of lists) {
+    if (!isRecord(item) || typeof item.path !== "string" || item.path === "") {
+      continue;
     }
-
-    const known = new Set(settings.sources.map((source) => source.id));
-    const pick = (value: unknown) => (typeof value === "string" && known.has(value) ? value : null);
-    const images = isRecord(state.backgroundImg) ? state.backgroundImg : {};
-    settings.areas.fullscreen.source = pick(images.fullscreen);
-    settings.areas.editor.source = pick(images.editor);
-    settings.areas.panel.source = pick(images.panel);
-    settings.areas.sidebar.source = pick(images.sideBar);
-
-    if (isRecord(state.elementsOpacity)) {
-        const opacity = state.elementsOpacity;
-        settings.areas.fullscreen.opacity = clampOpacity(1 - numberOr(opacity.fullscreen, 0.85));
-        settings.areas.editor.opacity = clampOpacity(numberOr(opacity.editor, settings.areas.editor.opacity));
-        settings.areas.panel.opacity = clampOpacity(numberOr(opacity.panel, settings.areas.panel.opacity));
-        settings.areas.sidebar.opacity = clampOpacity(numberOr(opacity.sideBar, settings.areas.sidebar.opacity));
+    const id = typeof item.id === "string" && item.id !== "" ? item.id : item.path;
+    const source: ImageSource = {
+      id,
+      name:
+        typeof item.name === "string" && item.name.trim() !== ""
+          ? item.name.trim()
+          : defaultSourceName(item.path),
+      type: item.type === "folder" ? "folder" : "file",
+      path: item.path,
+      description: typeof item.description === "string" ? item.description : "",
+      random: randoms[id] === true,
+      interval: Math.max(0, numberOr(intervals[id], DEFAULT_INTERVAL_SECONDS * 1000) / 1000),
+      recursive: false,
+    };
+    if (!settings.sources.some((existing) => existing.id === source.id)) {
+      settings.sources.push(source);
     }
+  }
 
-    const type = state.backgroundType;
-    if (Array.isArray(type)) {
-        settings.mode = "parts";
-        for (const name of type) {
-            const part = typeof name === "string" ? PART_NAMES[name] : undefined;
-            if (part) {
-                settings.areas[part].enabled = true;
-            }
-        }
-    } else {
-        settings.mode = "fullscreen";
+  const known = new Set(settings.sources.map((source) => source.id));
+  const pick = (value: unknown) => (typeof value === "string" && known.has(value) ? value : null);
+  const images = isRecord(state.backgroundImg) ? state.backgroundImg : {};
+  settings.areas.fullscreen.source = pick(images.fullscreen);
+  settings.areas.editor.source = pick(images.editor);
+  settings.areas.panel.source = pick(images.panel);
+  settings.areas.sidebar.source = pick(images.sideBar);
+
+  if (isRecord(state.elementsOpacity)) {
+    const opacity = state.elementsOpacity;
+    settings.areas.fullscreen.opacity = clampOpacity(1 - numberOr(opacity.fullscreen, 0.85));
+    settings.areas.editor.opacity = clampOpacity(
+      numberOr(opacity.editor, settings.areas.editor.opacity)
+    );
+    settings.areas.panel.opacity = clampOpacity(
+      numberOr(opacity.panel, settings.areas.panel.opacity)
+    );
+    settings.areas.sidebar.opacity = clampOpacity(
+      numberOr(opacity.sideBar, settings.areas.sidebar.opacity)
+    );
+  }
+
+  const type = state.backgroundType;
+  if (Array.isArray(type)) {
+    settings.mode = "parts";
+    for (const name of type) {
+      const part = typeof name === "string" ? PART_NAMES[name] : undefined;
+      if (part) {
+        settings.areas[part].enabled = true;
+      }
     }
-    // BackImage only drew something when it was enabled and a background type was chosen.
-    settings.enabled = state.enable === true && (type === "fullscreen" || Array.isArray(type));
-    return settings;
+  } else {
+    settings.mode = "fullscreen";
+  }
+  // BackImage only drew something when it was enabled and a background type was chosen.
+  settings.enabled = state.enable === true && (type === "fullscreen" || Array.isArray(type));
+  return settings;
 }
 
 export interface StateDatabase {
-    /** Human-readable label such as "Default profile". */
-    label: string;
-    file: string;
+  /** Human-readable label such as "Default profile". */
+  label: string;
+  file: string;
 }
 
 /**
@@ -116,47 +131,55 @@ export interface StateDatabase {
  * custom profile's. `globalStorageDir` is `<user data>/User/globalStorage`.
  */
 export function findStateDatabases(globalStorageDir: string): StateDatabase[] {
-    const result: StateDatabase[] = [];
-    const defaultDb = path.join(globalStorageDir, "state.vscdb");
-    if (fs.existsSync(defaultDb)) {
-        result.push({ label: "default", file: defaultDb });
+  const result: StateDatabase[] = [];
+  const defaultDb = path.join(globalStorageDir, "state.vscdb");
+  if (fs.existsSync(defaultDb)) {
+    result.push({ label: "default", file: defaultDb });
+  }
+  const profilesDir = path.join(path.dirname(globalStorageDir), "profiles");
+  try {
+    for (const entry of fs.readdirSync(profilesDir, { withFileTypes: true })) {
+      const file = path.join(profilesDir, entry.name, "globalStorage", "state.vscdb");
+      if (entry.isDirectory() && fs.existsSync(file)) {
+        result.push({ label: entry.name, file });
+      }
     }
-    const profilesDir = path.join(path.dirname(globalStorageDir), "profiles");
-    try {
-        for (const entry of fs.readdirSync(profilesDir, { withFileTypes: true })) {
-            const file = path.join(profilesDir, entry.name, "globalStorage", "state.vscdb");
-            if (entry.isDirectory() && fs.existsSync(file)) {
-                result.push({ label: entry.name, file });
-            }
-        }
-    } catch {
-        // No custom profiles.
-    }
-    return result;
+  } catch {
+    // No custom profiles.
+  }
+  return result;
 }
 
 /**
  * Reads BackImage's JSON state from a VS Code state database. The file is read into memory
  * first, so the database VS Code keeps open is never locked or modified.
  */
-export async function readBackImageState(databaseFile: string, wasmFile: string): Promise<unknown | null> {
-    const { default: initSqlJs } = await import("sql.js");
-    const SQL = await initSqlJs({ locateFile: () => wasmFile });
-    const db = new SQL.Database(await fs.promises.readFile(databaseFile));
+export async function readBackImageState(
+  databaseFile: string,
+  wasmFile: string
+): Promise<unknown | null> {
+  const { default: initSqlJs } = await import("sql.js");
+  const SQL = await initSqlJs({ locateFile: () => wasmFile });
+  const db = new SQL.Database(await fs.promises.readFile(databaseFile));
+  try {
+    const statement = db.prepare("SELECT value FROM ItemTable WHERE lower(key) = lower(?) LIMIT 1");
     try {
-        const statement = db.prepare("SELECT value FROM ItemTable WHERE lower(key) = lower(?) LIMIT 1");
-        try {
-            statement.bind([BACKIMAGE_EXTENSION_ID]);
-            if (!statement.step()) {
-                return null;
-            }
-            const [value] = statement.get();
-            const text = typeof value === "string" ? value : value instanceof Uint8Array ? new TextDecoder().decode(value) : null;
-            return text === null ? null : JSON.parse(text);
-        } finally {
-            statement.free();
-        }
+      statement.bind([BACKIMAGE_EXTENSION_ID]);
+      if (!statement.step()) {
+        return null;
+      }
+      const [value] = statement.get();
+      const text =
+        typeof value === "string"
+          ? value
+          : value instanceof Uint8Array
+            ? new TextDecoder().decode(value)
+            : null;
+      return text === null ? null : JSON.parse(text);
     } finally {
-        db.close();
+      statement.free();
     }
+  } finally {
+    db.close();
+  }
 }

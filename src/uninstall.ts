@@ -9,24 +9,24 @@ import { replaceChecksum, stripUshiroe, vscodeChecksum } from "./workbench/patch
 import { WORKBENCH_SCRIPT_KEY, appRootsFromExecPath, workbenchPaths } from "./workbench/paths";
 
 function cleanInstall(appRoot: string): void {
-    const paths = workbenchPaths(appRoot);
-    const current = fs.readFileSync(paths.script, "utf8");
-    const restored = stripUshiroe(current);
-    if (restored === current) {
-        return;
-    }
-    fs.writeFileSync(paths.script, restored, "utf8");
-    const product = fs.readFileSync(paths.product, "utf8");
-    const updated = replaceChecksum(product, WORKBENCH_SCRIPT_KEY, vscodeChecksum(restored));
-    if (updated !== null && updated !== product) {
-        fs.writeFileSync(paths.product, updated, "utf8");
-    }
+  const paths = workbenchPaths(appRoot);
+  const current = fs.readFileSync(paths.script, "utf8");
+  const restored = stripUshiroe(current);
+  if (restored === current) {
+    return;
+  }
+  fs.writeFileSync(paths.script, restored, "utf8");
+  const product = fs.readFileSync(paths.product, "utf8");
+  const updated = replaceChecksum(product, WORKBENCH_SCRIPT_KEY, vscodeChecksum(restored));
+  if (updated !== null && updated !== product) {
+    fs.writeFileSync(paths.product, updated, "utf8");
+  }
 }
 
 for (const appRoot of appRootsFromExecPath(process.execPath)) {
-    try {
-        cleanInstall(appRoot);
-    } catch (error) {
-        console.error(`[UshiroE] Could not clean ${appRoot}:`, error);
-    }
+  try {
+    cleanInstall(appRoot);
+  } catch (error) {
+    console.error(`[UshiroE] Could not clean ${appRoot}:`, error);
+  }
 }

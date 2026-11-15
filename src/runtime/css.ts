@@ -7,42 +7,42 @@ import type { AreaId, Size } from "../core/model";
  * so `inset: 0` covers exactly the part.
  */
 const AREA_SELECTORS: Record<AreaId, string> = {
-    fullscreen: "body::after",
-    editor: ".monaco-workbench [id='workbench.parts.editor']::before",
-    sidebar: ".monaco-workbench [id='workbench.parts.sidebar']::before",
-    auxiliaryBar: ".monaco-workbench [id='workbench.parts.auxiliarybar']::before",
-    panel: ".monaco-workbench [id='workbench.parts.panel']::before",
+  fullscreen: "body::after",
+  editor: ".monaco-workbench [id='workbench.parts.editor']::before",
+  sidebar: ".monaco-workbench [id='workbench.parts.sidebar']::before",
+  auxiliaryBar: ".monaco-workbench [id='workbench.parts.auxiliarybar']::before",
+  panel: ".monaco-workbench [id='workbench.parts.panel']::before",
 };
 
 const SIZE_RULES: Record<Size, string> = {
-    cover: "background-size: cover; background-repeat: no-repeat;",
-    contain: "background-size: contain; background-repeat: no-repeat;",
-    auto: "background-size: auto; background-repeat: no-repeat;",
-    stretch: "background-size: 100% 100%; background-repeat: no-repeat;",
-    tile: "background-size: auto; background-repeat: repeat;",
+  cover: "background-size: cover; background-repeat: no-repeat;",
+  contain: "background-size: contain; background-repeat: no-repeat;",
+  auto: "background-size: auto; background-repeat: no-repeat;",
+  stretch: "background-size: 100% 100%; background-repeat: no-repeat;",
+  tile: "background-size: auto; background-repeat: repeat;",
 };
 
 export function cssVariable(id: AreaId): string {
-    return `--ushiroe-${id}-image`;
+  return `--ushiroe-${id}-image`;
 }
 
 /** Keeps a user-provided `background-position` from closing the declaration block. */
 export function sanitizePosition(position: string): string {
-    const cleaned = position.replace(/[;{}<>"'\\]/g, "").trim();
-    return cleaned === "" ? "center" : cleaned;
+  const cleaned = position.replace(/[;{}<>"'\\]/g, "").trim();
+  return cleaned === "" ? "center" : cleaned;
 }
 
 export function cssUrl(url: string): string {
-    return `url("${url.replace(/["\\\n\r]/g, (char) => encodeURIComponent(char))}")`;
+  return `url("${url.replace(/["\\\n\r]/g, (char) => encodeURIComponent(char))}")`;
 }
 
 function areaRule(area: LiveArea, transition: number): string {
-    const isFullscreen = area.id === "fullscreen";
-    const blur = area.blur > 0 ? `filter: blur(${area.blur}px);` : "";
-    // Blur pulls transparent pixels in from outside the box. The fullscreen layer can bleed past the
-    // window edge to hide that soft edge; a part layer cannot, because it would cover its neighbours.
-    const inset = isFullscreen && area.blur > 0 ? `inset: ${-area.blur * 2}px;` : "inset: 0;";
-    return `${AREA_SELECTORS[area.id]} {
+  const isFullscreen = area.id === "fullscreen";
+  const blur = area.blur > 0 ? `filter: blur(${area.blur}px);` : "";
+  // Blur pulls transparent pixels in from outside the box. The fullscreen layer can bleed past the
+  // window edge to hide that soft edge; a part layer cannot, because it would cover its neighbours.
+  const inset = isFullscreen && area.blur > 0 ? `inset: ${-area.blur * 2}px;` : "inset: 0;";
+  return `${AREA_SELECTORS[area.id]} {
   content: "";
   position: ${isFullscreen ? "fixed" : "absolute"};
   ${inset}
@@ -58,11 +58,11 @@ function areaRule(area: LiveArea, transition: number): string {
 }
 
 export function buildCss(config: LiveConfig): string {
-    if (!config.enabled) {
-        return "";
-    }
-    return config.areas
-        .filter((area) => area.images.length > 0)
-        .map((area) => areaRule(area, config.transition))
-        .join("\n");
+  if (!config.enabled) {
+    return "";
+  }
+  return config.areas
+    .filter((area) => area.images.length > 0)
+    .map((area) => areaRule(area, config.transition))
+    .join("\n");
 }
