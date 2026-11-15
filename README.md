@@ -6,7 +6,14 @@
 
 **English** | [日本語](README.ja.md)
 
-UshiroE (後ろ絵) adds background images to VS Code. Set one for the entire window or choose separate images for the editor, side bars, and panel. UshiroE is the successor to [BackImage](https://github.com/ro80t/BackImage) and can import its settings.
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-007ACC)](https://marketplace.visualstudio.com/items?itemName=otoneko1102.ushiroe)
+[![Latest release](https://img.shields.io/github/v/release/otnc/UshiroE)](https://github.com/otnc/UshiroE/releases/latest)
+[![CI](https://github.com/otnc/UshiroE/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/otnc/UshiroE/actions/workflows/ci.yml)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+UshiroE (後ろ絵) adds background images to VS Code. Set one for the entire window or choose separate images for the editor, side bars, and panel. UshiroE is an unofficial successor to [BackImage](https://github.com/ro80t/BackImage) and can import its settings.
+
+**[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=otoneko1102.ushiroe)**
 
 ## Features
 

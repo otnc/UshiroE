@@ -6,7 +6,14 @@
 
 [English](README.md) | **日本語**
 
-UshiroE（後ろ絵）は、VS Code に背景画像を設定できる拡張機能です。ウィンドウ全体に 1 枚の画像を表示するか、エディターやサイドバー、パネルに別々の画像を設定できます。[BackImage](https://github.com/ro80t/BackImage) の後継で、BackImage の設定もインポートできます。
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-007ACC)](https://marketplace.visualstudio.com/items?itemName=otoneko1102.ushiroe)
+[![Latest release](https://img.shields.io/github/v/release/otnc/UshiroE)](https://github.com/otnc/UshiroE/releases/latest)
+[![CI](https://github.com/otnc/UshiroE/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/otnc/UshiroE/actions/workflows/ci.yml)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+UshiroE（後ろ絵）は、VS Code に背景画像を設定できる拡張機能です。ウィンドウ全体に 1 枚の画像を表示するか、エディターやサイドバー、パネルに別々の画像を設定できます。[BackImage](https://github.com/ro80t/BackImage) の後継（非公式）で、BackImage の設定もインポートできます。
+
+**[VS Code Marketplace からインストール](https://marketplace.visualstudio.com/items?itemName=otoneko1102.ushiroe)**
 
 ## 機能
 
