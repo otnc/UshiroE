@@ -111,7 +111,7 @@ export function defaultSettings(): UshiroeSettings {
     sources: [],
     areas: defaultAreas(),
     transition: 1,
-    shuffleInterval: 60,
+    shuffleInterval: 0,
     presets: [],
     randomPresetOnStartup: false,
   };

@@ -665,7 +665,7 @@
         },
         "ushiroe.shuffleInterval": {
           "type": "number",
-          "default": 60,
+          "default": 0,
           "minimum": 0,
           "scope": "application",
           "order": 9,
