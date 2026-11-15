@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+*.png binary
+*.wasm binary
+
+# Installed agent skills (npx skills add), kept out of GitHub language stats
+.agents/** linguist-vendored
