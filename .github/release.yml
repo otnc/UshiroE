@@ -1,0 +1,12 @@
+# Categories for GitHub's generated release notes, used when CHANGELOG.md has no entry for a release.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: Added
+      labels: [enhancement]
+    - title: Fixed
+      labels: [bug]
+    - title: Other changes
+      labels: ["*"]
