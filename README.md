@@ -12,8 +12,10 @@ UshiroE (後ろ絵, "the picture behind") puts background images behind VS Code:
 
 - **Full window or per part**: the editor, the primary side bar, the secondary side bar (where Chat lives) and the panel can each have their own image.
 - **Live updates**: changing an image, the opacity, the fit or the blur takes effect within a couple of seconds. No reload is needed, apart from a single restart when the patch is first installed.
-- **Folders and URLs**: a folder rotates through its images at a fixed interval, in order or at random, optionally including subfolders. New files in the folder are picked up automatically. `https://` image URLs work too.
-- **Fit, position and blur** per area, and a cross-fade when images change.
+- **Folders and URLs**: a folder rotates through its images at a fixed interval, in order or at random, optionally including subfolders. New files in the folder are picked up automatically. Images from `http://` and `https://` URLs are downloaded once or again at every startup.
+- **One image folder**: every image is copied into `UshiroE` in your Pictures folder (or a folder you choose) under a short ASCII name, so paths with Japanese or other non-ASCII characters never cause trouble, and the background stays when the original is moved.
+- **Random everything**: show all images in random order, save layouts as presets, and apply a random preset on demand or at every startup.
+- **Fit, position and blur** per area, and a cross-fade when images change. The title bar with the menus always stays clear.
 - **Next Image** command to skip to the next image right away.
 - **Import from BackImage**, plus export and import of UshiroE's own settings as JSON.
 - **Safe patching**: no full copies of VS Code's files are kept. The patch is a marked block that is removed exactly, so restoring never brings back a stale file from an older VS Code version.
@@ -34,7 +36,21 @@ After that, changes in the view or in `settings.json` show up without restarting
 2. After the import, UshiroE offers to uninstall BackImage. Accept it, because both extensions patch the same file and would conflict. UshiroE also removes BackImage's patch and the `.backup` files it left in VS Code's installation folder.
 3. Restart VS Code.
 
-Image lists become image sources, and the selected images, part settings, random order and intervals carry over. BackImage's full-screen opacity described how opaque the UI was, while UshiroE's describes how visible the image is, so that value is converted (BackImage's 0.85 becomes 0.15). Like BackImage, backgrounds stay off when no background type was selected in BackImage.
+Image lists become image sources, and the selected images, part settings, random order and intervals carry over. BackImage's full-screen opacity described how opaque the UI was, while UshiroE's describes how visible the image is, so that value is converted (BackImage's 0.85 becomes 0.15). Like BackImage, backgrounds stay off when no background type was selected in BackImage. Imported images are copied into the image folder like any other image.
+
+## Image folder
+
+UshiroE never shows your original files directly. Every image, whether it comes from a file, a folder, a URL or BackImage, is copied into `UshiroE` in your Pictures folder, with one subfolder per source and short ASCII file names. This avoids trouble with paths that contain Japanese or other non-ASCII characters, and the background keeps working when the original is moved or deleted.
+
+- Folder sources are mirrored: images added to or removed from the original folder are copied or removed automatically.
+- Use **Change** in the view's Image folder section (or `ushiroe.libraryFolder`) to pick another folder, and **Use Default** to go back. The old folder is left as it is.
+- Only subfolders UshiroE created (they contain a `manifest.json`) are ever deleted, so other files you keep there are safe.
+
+## Random and presets
+
+- Choose **All images (random)** as an area's image to shuffle through the images of every source. `ushiroe.shuffleInterval` sets how often it changes.
+- **Save** stores the current layout (the mode and every area) as a preset. Apply or delete presets from the view or the Command Palette.
+- **Random** applies a random preset, always a different one from the current layout when there is a choice. Turn on **Apply a random preset when VS Code starts** to get a new look every time.
 
 ## Settings
 
@@ -42,10 +58,14 @@ Image lists become image sources, and the selected images, part settings, random
 | --- | --- |
 | `ushiroe.enabled` | Show background images. |
 | `ushiroe.mode` | `fullscreen` for one image over the window, `parts` for separate images per part. |
-| `ushiroe.sources` | Image sources: `file`, `folder` or `url`, with `random`, `interval` (seconds) and `recursive` for folders. |
-| `ushiroe.fullscreen` | Image, opacity, fit, position and blur for the full window. |
+| `ushiroe.sources` | Image sources: `file`, `folder` or `url`, with `random`, `interval` (seconds) and `recursive` for folders and `refresh` (`never` or `startup`) for URLs. |
+| `ushiroe.fullscreen` | Image, opacity, fit, position and blur for the full window. The image is a source id, or `*` for all images. |
 | `ushiroe.editor`, `ushiroe.sidebar`, `ushiroe.auxiliaryBar`, `ushiroe.panel` | The same, plus `enabled`, for each part. |
 | `ushiroe.transition` | Seconds the cross-fade between images takes. |
+| `ushiroe.shuffleInterval` | Seconds between images for All images (`*`); 0 changes only at startup. |
+| `ushiroe.presets` | Saved layouts. |
+| `ushiroe.randomPresetOnStartup` | Apply a random preset each time VS Code starts. |
+| `ushiroe.libraryFolder` | Folder for the image copies; empty means `UshiroE` in your Pictures folder. |
 | `ushiroe.patch.hideCorruptWarning` | Update VS Code's checksum so it does not report the installation as corrupt. |
 | `ushiroe.patch.autoRepair` | Re-apply the patch automatically after VS Code updates. |
 
@@ -66,6 +86,21 @@ Run **UshiroE: Remove Patch from VS Code** before uninstalling, then restart VS 
 - VS Code may show "\[Unsupported]" in the title bar or a notice that the installation is corrupt. `ushiroe.patch.hideCorruptWarning` (on by default) updates VS Code's checksum to prevent this.
 - UshiroE only works in desktop VS Code. In remote sessions (SSH, WSL, Dev Containers) it runs on your local machine, and images must be on your local machine.
 - If something goes wrong, run **UshiroE: Remove Patch from VS Code**. Reinstalling VS Code also restores it completely.
+
+## Development
+
+| Command | What it does |
+| --- | --- |
+| `npm run build` | Bundles the extension into `dist/`. |
+| `npm run check-types`, `npm run lint`, `npm run format:check` | Type checks, lints and checks formatting. |
+| `npm test` | Runs the unit tests. |
+| `npm run test:integration` | Runs the integration tests in a downloaded VS Code. |
+| `npm run vsix` | Builds `ushiroe.vsix`. |
+| `npm run vsix:install` | Builds `ushiroe.vsix` and installs it into your VS Code with `code --install-extension`. |
+| `npm run docs:build` | Regenerates `README.md` and `README.ja.md` from `base/README.base.md`. |
+| `npm run changelog:preview` | Shows the changelog entry the next release will get. |
+
+Releases are made with the `release` workflow. `CHANGELOG.md` is generated from Conventional Commits by git-cliff, so PR titles must follow that format (`feat: ...`, `fix: ...`); they become the squash commit messages.
 
 ## License
 
