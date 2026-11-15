@@ -3,40 +3,53 @@ import fs from "node:fs";
 import { env, l10n, window } from "vscode";
 
 import type { RuntimeBoot } from "./runtime/main";
-import { type FileChange, applyChangesDirect, applyChangesElevated } from "./workbench/fileio";
-import { buildPatchBlock, inspectPatch } from "./workbench/patch";
-import { type WorkbenchPaths, workbenchPaths } from "./workbench/paths";
-import {
-  type WorkbenchEdit,
-  type WorkbenchFiles,
-  planApply,
-  planRemove,
-  planRemoveBackImage,
-} from "./workbench/plan";
+import { type RestoreResult, WorkbenchEditor } from "./workbench/editor";
+import { type FileChange, writeElevated } from "./workbench/fileio";
+import type { IntegrityFailure } from "./workbench/integrity";
+import { buildPatchBlock } from "./workbench/patch";
 
 export type PatchState = "applied" | "outdated" | "missing";
 
 export interface PatchStatus {
   state: PatchState;
-  /** BackImage's own patch is still in the workbench script. */
+  /** Hash of the UshiroE block in the script, whatever version wrote it. */
+  blockHash: string | null;
+  /** BackImage's block is still in the workbench script. */
   hasBackImage: boolean;
+  /** BackImage's `.backup` files are still next to the workbench files. */
+  hasBackImageBackups: boolean;
+  /** Why the workbench files are not a known-good base, or null when they are. */
+  problem: IntegrityFailure | null;
+  /** VS Code's build commit. */
+  commit: string;
 }
 
-export class CancelledError extends Error {
-  constructor() {
-    super("Cancelled by the user");
-    this.name = "CancelledError";
+async function askElevation(changes: FileChange[]): Promise<boolean> {
+  const retry = l10n.t("Retry as Administrator");
+  const choice = await window.showWarningMessage(
+    l10n.t("UshiroE needs administrator rights to modify VS Code's installation folder."),
+    { modal: true, detail: changes.map((change) => change.target).join("\n") },
+    retry
+  );
+  if (choice !== retry) {
+    return false;
   }
+  await writeElevated(changes);
+  return true;
 }
 
+/** Builds UshiroE's block and hands every file change to the {@link WorkbenchEditor}. */
 export class Patcher {
-  readonly paths: WorkbenchPaths = workbenchPaths(env.appRoot);
+  readonly editor: WorkbenchEditor;
   private expected: { block: string; hash: string } | undefined;
 
   constructor(
     private readonly runtimeFile: string,
-    private readonly boot: RuntimeBoot
-  ) {}
+    private readonly boot: RuntimeBoot,
+    stateDir: string
+  ) {
+    this.editor = new WorkbenchEditor({ appRoot: env.appRoot, stateDir, elevate: askElevation });
+  }
 
   private async expectedBlock(): Promise<{ block: string; hash: string }> {
     this.expected ??= buildPatchBlock(
@@ -46,63 +59,38 @@ export class Patcher {
     return this.expected;
   }
 
-  private async readFiles(): Promise<WorkbenchFiles> {
-    const script = await fs.promises.readFile(this.paths.script, "utf8");
-    const product = await fs.promises.readFile(this.paths.product, "utf8").catch(() => null);
-    return { script, product };
-  }
-
   async status(): Promise<PatchStatus> {
-    const [{ hash }, files] = await Promise.all([this.expectedBlock(), this.readFiles()]);
-    const info = inspectPatch(files.script);
-    const state: PatchState =
-      info.hash === null ? "missing" : info.hash === hash ? "applied" : "outdated";
-    return { state, hasBackImage: info.hasBackImage };
+    const [{ hash }, status] = await Promise.all([this.expectedBlock(), this.editor.status()]);
+    return {
+      state:
+        status.blockHash === null ? "missing" : status.blockHash === hash ? "applied" : "outdated",
+      blockHash: status.blockHash,
+      hasBackImage: status.hasBackImage,
+      hasBackImageBackups: this.editor.existingBackImageBackups().length > 0,
+      problem: status.integrity.ok ? null : status.integrity.reason,
+      commit: status.commit ?? "unknown",
+    };
   }
 
   /** Installs or updates the patch. Returns whether the workbench script changed. */
   async apply(hideCorruptWarning: boolean): Promise<boolean> {
-    const { block } = await this.expectedBlock();
-    return this.commit(planApply(await this.readFiles(), block, hideCorruptWarning));
+    return this.editor.apply((await this.expectedBlock()).block, hideCorruptWarning);
   }
 
   /** Removes the UshiroE patch and restores the checksum. Returns whether anything was installed. */
-  async remove(): Promise<boolean> {
-    return this.commit(planRemove(await this.readFiles()));
+  remove(): Promise<boolean> {
+    return this.editor.remove();
+  }
+
+  restore(): Promise<RestoreResult> {
+    return this.editor.restore();
   }
 
   existingBackImageBackups(): string[] {
-    return this.paths.backImageBackups.filter((file) => fs.existsSync(file));
+    return this.editor.existingBackImageBackups();
   }
 
-  /** Deletes BackImage's patch and backup files. Only safe once BackImage is uninstalled. */
-  async removeBackImageLeftovers(): Promise<void> {
-    const deletions = this.existingBackImageBackups().map((target) => ({ target, content: null }));
-    await this.commit(planRemoveBackImage(await this.readFiles()), deletions);
-  }
-
-  /** Writes the edit, asking for administrator rights when needed. Returns whether the script changed. */
-  private async commit(edit: WorkbenchEdit, extra: FileChange[] = []): Promise<boolean> {
-    const changes: FileChange[] = [...extra];
-    if (edit.script !== undefined) {
-      changes.push({ target: this.paths.script, content: edit.script });
-    }
-    if (edit.product !== undefined) {
-      changes.push({ target: this.paths.product, content: edit.product });
-    }
-    const denied = await applyChangesDirect(changes);
-    if (denied.length > 0) {
-      const retry = l10n.t("Retry as Administrator");
-      const choice = await window.showWarningMessage(
-        l10n.t("UshiroE needs administrator rights to modify VS Code's installation folder."),
-        { modal: true, detail: denied.map((change) => change.target).join("\n") },
-        retry
-      );
-      if (choice !== retry) {
-        throw new CancelledError();
-      }
-      await applyChangesElevated(denied);
-    }
-    return edit.script !== undefined;
+  removeBackImageLeftovers(hideCorruptWarning: boolean): Promise<void> {
+    return this.editor.removeBackImageLeftovers(hideCorruptWarning);
   }
 }

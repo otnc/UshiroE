@@ -72,8 +72,7 @@ export function vscodeChecksum(content: string | Uint8Array): string {
  * Returns null when the file has no checksum for that key.
  */
 export function replaceChecksum(productJson: string, key: string, checksum: string): string | null {
-  const escapedKey = key.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
-  const pattern = new RegExp(`("${escapedKey}"\\s*:\\s*")([^"]*)(")`);
+  const pattern = checksumPattern(key);
   if (!pattern.test(productJson)) {
     return null;
   }
@@ -81,4 +80,42 @@ export function replaceChecksum(productJson: string, key: string, checksum: stri
     pattern,
     (_all, before: string, _old: string, after: string) => before + checksum + after
   );
+}
+
+export interface UshiroeBlockInfo {
+  hash: string;
+  /** The hash in the begin marker matches the block body, so the block is complete. */
+  valid: boolean;
+}
+
+/** Every UshiroE block in the script, with whether its body still matches its hash. */
+export function ushiroeBlocks(content: string): UshiroeBlockInfo[] {
+  const pattern = /\/\* ushiroe:begin ([0-9a-f]+) \*\/\n([\s\S]*?)\n\/\* ushiroe:end \*\//g;
+  return [...content.matchAll(pattern)].map((match) => ({
+    hash: match[1],
+    valid: shortHash(match[2]) === match[1],
+  }));
+}
+
+function checksumPattern(key: string): RegExp {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  return new RegExp(`("${escapedKey}"\\s*:\\s*")([^"]*)(")`);
+}
+
+/** The checksum `product.json` stores for a file, or null when it has none. */
+export function readChecksum(productJson: string, key: string): string | null {
+  return checksumPattern(key).exec(productJson)?.[2] ?? null;
+}
+
+/**
+ * Throws unless `next` differs from `previous` only in the value of one checksum entry, so a
+ * bug can never rewrite anything else in `product.json`.
+ */
+export function assertOnlyChecksumChanged(previous: string, next: string, key: string): void {
+  const pattern = checksumPattern(key);
+  const mask = (text: string) =>
+    text.replace(pattern, (_all, before, _value, after) => before + after);
+  if (!pattern.test(previous) || !pattern.test(next) || mask(previous) !== mask(next)) {
+    throw new Error(`Refusing to write product.json: only the ${key} checksum may change.`);
+  }
 }
