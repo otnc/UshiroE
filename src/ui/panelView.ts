@@ -55,6 +55,8 @@ const ALLOWED_COMMANDS: Record<string, boolean> = {
   "ushiroe.nextImage": false,
   "ushiroe.refreshImages": false,
   "ushiroe.refreshSource": true,
+  "ushiroe.addImagesToSource": true,
+  "ushiroe.openSourceFolder": true,
   "ushiroe.openLibrary": false,
   "ushiroe.chooseLibraryFolder": false,
   "ushiroe.resetLibraryFolder": false,
@@ -88,7 +90,6 @@ const SOURCE_PATCH_KEYS = new Set<keyof ImageSource>([
   "description",
   "random",
   "interval",
-  "recursive",
   "refresh",
 ]);
 

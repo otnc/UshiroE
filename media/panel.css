@@ -352,14 +352,10 @@ input[type="checkbox"] {
   min-width: 0;
 }
 
-.source-name,
-.source-path {
+.source-name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.source-name {
   font-weight: 600;
 }
 
@@ -368,11 +364,6 @@ input[type="checkbox"] {
   align-items: center;
   gap: 6px;
   color: var(--vscode-descriptionForeground);
-}
-
-.source-path {
-  color: var(--vscode-descriptionForeground);
-  font-size: 11px;
 }
 
 .badge {
@@ -465,4 +456,12 @@ summary {
 
 .notice .button-row {
   grid-column: 2;
+}
+
+.origin {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
 }

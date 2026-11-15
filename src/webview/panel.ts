@@ -241,53 +241,61 @@ function renderAreas(current: State): string {
 }
 
 function renderSource(source: SourceView): string {
+  const id = escapeHtml(source.id);
   const detailsId = `source-${source.id}`;
-  const missing = source.count === 0;
-  const meta = missing
-    ? `<span class="error">${icon("error")} ${escapeHtml(t.notFound)}</span>`
-    : source.type === "folder"
-      ? escapeHtml(format(t.imageCount, source.count))
-      : source.type === "url"
-        ? escapeHtml(source.refresh === "startup" ? t.refresh_startup : t.refresh_never)
-        : "";
+  const isUrl = source.type === "url";
+  const meta =
+    source.count === 0
+      ? `<span class="error">${icon("error")} ${escapeHtml(t.notFound)}</span>`
+      : escapeHtml(format(t.imageCount, source.count));
   const thumbnail = source.thumbnail
     ? `<img src="${escapeHtml(source.thumbnail)}" alt="" loading="lazy">`
-    : icon(source.type === "folder" ? "folder" : source.type === "url" ? "globe" : "file-media");
-  const interval =
-    source.type === "folder"
-      ? `<label class="field"><span>${escapeHtml(t.interval)}</span><input type="number" min="0" step="1" value="${source.interval}" data-source="${escapeHtml(source.id)}" data-field="interval"></label>
-      <label class="check"><input type="checkbox" data-source="${escapeHtml(source.id)}" data-field="random"${source.random ? " checked" : ""}><span>${escapeHtml(t.random)}</span></label>
-      <label class="check"><input type="checkbox" data-source="${escapeHtml(source.id)}" data-field="recursive"${source.recursive ? " checked" : ""}><span>${escapeHtml(t.recursive)}</span></label>`
-      : source.type === "url"
-        ? `<label class="field"><span>${escapeHtml(t.refresh)}</span><select data-source="${escapeHtml(source.id)}" data-field="refresh">${options(
-            [
-              ["never", t.refresh_never],
-              ["startup", t.refresh_startup],
-            ],
-            source.refresh
-          )}</select></label>`
-        : "";
-  const again = button(
-    source.type === "url" ? t.downloadAgain : t.copyAgain,
-    `cmd:ushiroe.refreshSource|${source.id}`,
-    { icon: "sync" }
-  );
-  return `<li class="source${missing ? " missing" : ""}">
+    : icon(source.type === "folder" ? "folder" : isUrl ? "globe" : "file-media");
+  // Rotation only matters once a source holds more than one image.
+  const rotation =
+    source.count > 1
+      ? `<label class="field"><span>${escapeHtml(t.interval)}</span><input type="number" min="0" step="1" value="${source.interval}" data-source="${id}" data-field="interval"></label>
+      <label class="check"><input type="checkbox" data-source="${id}" data-field="random"${source.random ? " checked" : ""}><span>${escapeHtml(t.random)}</span></label>`
+      : "";
+  const origin = isUrl
+    ? `<label class="field"><span>${escapeHtml(t.refresh)}</span><select data-source="${id}" data-field="refresh">${options(
+        [
+          ["never", t.refresh_never],
+          ["startup", t.refresh_startup],
+        ],
+        source.refresh
+      )}</select></label>
+      <div class="field"><span>${escapeHtml(t.url)}</span><div class="origin" title="${escapeHtml(source.path)}">${escapeHtml(source.path)}</div></div>`
+    : `<div class="field"><span>${escapeHtml(t.importedFrom)}</span><div class="origin" title="${escapeHtml(source.path)}">${escapeHtml(source.path)}</div></div>`;
+  const actions = isUrl
+    ? [
+        button(t.downloadAgain, `cmd:ushiroe.refreshSource|${source.id}`, { icon: "sync" }),
+        button(t.openSourceFolder, `cmd:ushiroe.openSourceFolder|${source.id}`, {
+          icon: "folder-opened",
+        }),
+      ]
+    : [
+        button(t.addImagesToSource, `cmd:ushiroe.addImagesToSource|${source.id}`, { icon: "add" }),
+        button(t.openSourceFolder, `cmd:ushiroe.openSourceFolder|${source.id}`, {
+          icon: "folder-opened",
+        }),
+      ];
+  return `<li class="source${source.count === 0 ? " missing" : ""}">
   <div class="source-main">
     <div class="thumb">${thumbnail}</div>
     <div class="source-text">
       <div class="source-name">${escapeHtml(source.name)}</div>
       <div class="source-meta"><span class="badge">${escapeHtml(t[`type_${source.type}` as keyof Strings])}</span>${meta}</div>
-      <div class="source-path" title="${escapeHtml(source.path)}">${escapeHtml(source.path)}</div>
     </div>
     ${button("", `remove:${source.id}`, { icon: "trash", title: t.remove })}
   </div>
   <details data-details="${escapeHtml(detailsId)}"${openDetails.has(detailsId) ? " open" : ""}>
     <summary>${escapeHtml(t.details)}</summary>
     <div class="details-body">
-      <label class="field"><span>${escapeHtml(t.name)}</span><input type="text" value="${escapeHtml(source.name)}" data-source="${escapeHtml(source.id)}" data-field="name"></label>
-      ${interval}
-      <div class="button-row">${again}</div>
+      <label class="field"><span>${escapeHtml(t.name)}</span><input type="text" value="${escapeHtml(source.name)}" data-source="${id}" data-field="name"></label>
+      ${rotation}
+      ${origin}
+      <div class="button-row">${actions.join("")}</div>
     </div>
   </details>
 </li>`;
