@@ -18,7 +18,7 @@ UshiroE (後ろ絵) は、VS Code の背景に画像を表示する拡張機能�
 - **Live updates**: changing an image, the opacity, the fit or the blur takes effect within a couple of seconds. No reload is needed, apart from a single restart when the patch is first installed.
 - **Folders and URLs**: a folder's images rotate at a fixed interval, in order or at random, optionally including subfolders. Images from `http://` and `https://` URLs are downloaded once or again at every startup.
 - **One image folder**: every image is copied into `UshiroE` in your Pictures folder (or a folder you choose) under a short ASCII name when you add it, so paths with Japanese or other non-ASCII characters never cause trouble, and the background stays when the original is moved or deleted.
-- **Random everything**: show all images in random order, save layouts as presets, and apply a random preset on demand or at every startup.
+- **Presets and order**: build presets, your own lists of images, and put the sources and their images in the order you like. Any of them can play from top to bottom or at random, on a timer or only when VS Code starts.
 - **Fit, position and blur** per area, and a cross-fade when images change. The title bar with the menus always stays clear.
 - **Next Image** command to skip to the next image right away.
 - **Import from BackImage**, plus export and import of UshiroE's own settings as JSON.
@@ -32,7 +32,7 @@ UshiroE (後ろ絵) は、VS Code の背景に画像を表示する拡張機能�
 - **即時反映**: 画像、不透明度、サイズ、ぼかしを変えると数秒以内に反映されます。パッチを初めて適用したときに 1 回再起動するだけで、それ以降の再読み込みは不要です。
 - **フォルダと URL**: フォルダを指定すると、中の画像を一定間隔で順番またはランダムに切り替えます。サブフォルダを含めることもできます。`http://` と `https://` の URL の画像は、1 回だけ、または起動するたびにダウンロードします。
 - **画像フォルダに集約**: すべての画像をピクチャフォルダ内の `UshiroE` (または選んだフォルダ) に、追加したときに ASCII の短い名前でコピーします。日本語などを含むパスでも問題が起きず、元の画像を移動したり削除したりしても背景は消えません。
-- **ランダム**: すべての画像をランダムに表示したり、レイアウトをプリセットとして保存して、ランダムなプリセットを好きなときや起動時に適用したりできます。
+- **プリセットと順番**: 好きな画像を並べたプリセットを作れます。ソースやソースの中の画像の順番も並べ替えられます。どれも上から順またはランダムに、一定間隔で、または VS Code の起動時だけ切り替えられます。
 - エリアごとの **サイズ、位置、ぼかし** の設定と、画像切り替え時のクロスフェード。メニューのあるタイトルバーには画像を重ねません。
 - すぐに次の画像へ切り替える **次の画像** コマンド。
 - **BackImage からのインポート** と、UshiroE の設定の JSON でのエクスポートとインポート。
@@ -112,18 +112,30 @@ UshiroE は元のファイルを直接表示しません。ファイル、フォ
 :::
 
 :::kiritan{locale=en}
-## Random and presets
+## Presets and order
 
-- Choose **All images (random)** as an area's image to shuffle through the images of every source. `ushiroe.shuffleInterval` sets how often it changes.
-- **Save** stores the current layout (the mode and every area) as a preset. Apply or delete presets from the view or the Command Palette.
-- **Random** applies a random preset, always a different one from the current layout when there is a choice. Turn on **Apply a random preset when VS Code starts** to get a new look every time.
+Each area's **Image** can be a source, a preset, or **All images**. All three take turns the same way:
+
+- **Order**: from top to bottom, or random.
+- **Change every**: seconds between images; 0 keeps the same image.
+- **Change only when VS Code starts**: no timer; each start shows the next image, or a random one.
+
+**Presets** are your own lists of images. Press **New Preset**, give it a name, open **Add Images** in the preset and click the images you want. Use the arrows to change the order. You can make as many presets as you like.
+
+**All images** plays every source's images in the order of the **Images** list: the sources from top to bottom (use the arrows next to each source), and inside each source the order shown in its details.
 :::
 :::kiritan{locale=ja}
-## ランダムとプリセット
+## プリセットと順番
 
-- エリアの画像に **すべての画像 (ランダム)** を選ぶと、すべてのソースの画像をランダムに切り替えます。切り替え間隔は `ushiroe.shuffleInterval` で設定します。
-- **保存** で現在のレイアウト (モードと各エリアの設定) をプリセットとして保存します。プリセットの適用と削除はビューやコマンドパレットから行えます。
-- **ランダム** はランダムなプリセットを適用します。選択肢があるときは、必ず今と違うプリセットを選びます。**VS Code の起動時にランダムなプリセットを適用する** をオンにすると、起動するたびに見た目が変わります。
+各エリアの **画像** には、ソース、プリセット、**すべての画像** のどれかを選べます。3 つとも同じ設定で切り替わります。
+
+- **順番**: 上から順、またはランダム。
+- **切り替え間隔**: 画像を切り替える秒数です。0 にすると同じ画像のままです。
+- **VS Code の起動時だけ切り替える**: タイマーを使わず、起動するたびに次の画像 (またはランダムな画像) を表示します。
+
+**プリセット** は、自分で並べた画像のリストです。**新しいプリセット** を押して名前を付け、プリセットの中の **画像を追加** を開いて、使いたい画像をクリックします。順番は矢印で入れ替えられます。プリセットはいくつでも作れます。
+
+**すべての画像** は、**画像** 一覧の順番ですべてのソースの画像を再生します。ソースは上から順に (各ソースの横の矢印で入れ替えます)、ソースの中の画像は詳細に表示される順番になります。
 :::
 
 :::kiritan{locale=en}
@@ -134,12 +146,11 @@ UshiroE は元のファイルを直接表示しません。ファイル、フォ
 | `ushiroe.enabled` | Show background images. |
 | `ushiroe.mode` | `fullscreen` for one image over the window, `parts` for separate images per part. |
 | `ushiroe.sources` | Image sources: `file`, `folder` or `url`, with `random`, `interval` (seconds) and `recursive` for folders and `refresh` (`never` or `startup`) for URLs. |
-| `ushiroe.fullscreen` | Image, opacity, fit, position and blur for the full window. The image is a source id, or `*` for all images. |
+| `ushiroe.fullscreen` | Image, opacity, fit, position and blur for the full window. The image is a source id, `*` for all images, or `preset:<id>`. Sources also have `changeOnStartupOnly`. |
 | `ushiroe.editor`, `ushiroe.sidebar`, `ushiroe.auxiliaryBar`, `ushiroe.panel` | The same, plus `enabled`, for each part. |
 | `ushiroe.transition` | Seconds the cross-fade between images takes. |
-| `ushiroe.shuffleInterval` | Seconds between images for All images (`*`); 0 changes only at startup. |
-| `ushiroe.presets` | Saved layouts. |
-| `ushiroe.randomPresetOnStartup` | Apply a random preset each time VS Code starts. |
+| `ushiroe.allImages` | How All images (`*`) takes turns: `random`, `interval` (seconds) and `changeOnStartupOnly`. |
+| `ushiroe.presets` | Your presets: a name, the images in order, and the same three settings. |
 | `ushiroe.libraryFolder` | Folder for the image copies; empty means `UshiroE` in your Pictures folder. |
 | `ushiroe.backImage.priority` | Who manages the background while BackImage is active: `ushiroe` (default) or `backImage`. |
 | `ushiroe.patch.hideCorruptWarning` | Update VS Code's checksum so it does not report the installation as corrupt. |
@@ -155,12 +166,11 @@ Supported image formats are PNG, JPEG, GIF, BMP, SVG and WebP. These are the for
 | `ushiroe.enabled` | 背景画像を表示します。 |
 | `ushiroe.mode` | `fullscreen` はウィンドウ全体に 1 枚、`parts` はパーツごとに別の画像を表示します。 |
 | `ushiroe.sources` | 画像ソースです。`file`、`folder`、`url` を指定できます。フォルダには `random`、`interval` (秒)、`recursive`、URL には `refresh` (`never` または `startup`) も設定できます。 |
-| `ushiroe.fullscreen` | ウィンドウ全体の画像、不透明度、サイズ、位置、ぼかしです。画像にはソースの ID か、すべての画像を表す `*` を指定します。 |
+| `ushiroe.fullscreen` | ウィンドウ全体の画像、不透明度、サイズ、位置、ぼかしです。画像にはソースの ID、すべての画像を表す `*`、プリセットを表す `preset:<ID>` のどれかを指定します。ソースにも `changeOnStartupOnly` があります。 |
 | `ushiroe.editor`、`ushiroe.sidebar`、`ushiroe.auxiliaryBar`、`ushiroe.panel` | 各パーツの同様の設定です。`enabled` も含みます。 |
 | `ushiroe.transition` | 画像を切り替えるときのクロスフェードの秒数です。 |
-| `ushiroe.shuffleInterval` | すべての画像 (`*`) の切り替え間隔 (秒) です。0 にすると起動時にだけ切り替えます。 |
-| `ushiroe.presets` | 保存したレイアウトです。 |
-| `ushiroe.randomPresetOnStartup` | VS Code を起動するたびにランダムなプリセットを適用します。 |
+| `ushiroe.allImages` | すべての画像 (`*`) の切り替え方です。`random`、`interval` (秒)、`changeOnStartupOnly` を設定します。 |
+| `ushiroe.presets` | 作成したプリセットです。名前、順番に並べた画像、同じ 3 つの設定を持ちます。 |
 | `ushiroe.libraryFolder` | 画像のコピーを置くフォルダです。空にするとピクチャフォルダ内の `UshiroE` を使います。 |
 | `ushiroe.backImage.priority` | BackImage が動いているときに背景を管理する側です。`ushiroe` (既定) または `backImage` を指定します。 |
 | `ushiroe.patch.hideCorruptWarning` | VS Code のチェックサムを更新し、「インストールが壊れている」という警告を出さないようにします。 |

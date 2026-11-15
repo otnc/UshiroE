@@ -14,7 +14,7 @@ UshiroE (後ろ絵, "the picture behind") puts background images behind VS Code:
 - **Live updates**: changing an image, the opacity, the fit or the blur takes effect within a couple of seconds. No reload is needed, apart from a single restart when the patch is first installed.
 - **Folders and URLs**: a folder's images rotate at a fixed interval, in order or at random, optionally including subfolders. Images from `http://` and `https://` URLs are downloaded once or again at every startup.
 - **One image folder**: every image is copied into `UshiroE` in your Pictures folder (or a folder you choose) under a short ASCII name when you add it, so paths with Japanese or other non-ASCII characters never cause trouble, and the background stays when the original is moved or deleted.
-- **Random everything**: show all images in random order, save layouts as presets, and apply a random preset on demand or at every startup.
+- **Presets and order**: build presets, your own lists of images, and put the sources and their images in the order you like. Any of them can play from top to bottom or at random, on a timer or only when VS Code starts.
 - **Fit, position and blur** per area, and a cross-fade when images change. The title bar with the menus always stays clear.
 - **Next Image** command to skip to the next image right away.
 - **Import from BackImage**, plus export and import of UshiroE's own settings as JSON.
@@ -52,11 +52,17 @@ UshiroE never shows your original files directly. Every image, whether it comes 
 - Use **Change** in the view's Image folder section (or `ushiroe.libraryFolder`) to pick another folder, and **Use Default** to go back. The old folder is left as it is.
 - Only subfolders UshiroE created (they contain a `manifest.json`) are ever deleted, so other files you keep there are safe.
 
-## Random and presets
+## Presets and order
 
-- Choose **All images (random)** as an area's image to shuffle through the images of every source. `ushiroe.shuffleInterval` sets how often it changes.
-- **Save** stores the current layout (the mode and every area) as a preset. Apply or delete presets from the view or the Command Palette.
-- **Random** applies a random preset, always a different one from the current layout when there is a choice. Turn on **Apply a random preset when VS Code starts** to get a new look every time.
+Each area's **Image** can be a source, a preset, or **All images**. All three take turns the same way:
+
+- **Order**: from top to bottom, or random.
+- **Change every**: seconds between images; 0 keeps the same image.
+- **Change only when VS Code starts**: no timer; each start shows the next image, or a random one.
+
+**Presets** are your own lists of images. Press **New Preset**, give it a name, open **Add Images** in the preset and click the images you want. Use the arrows to change the order. You can make as many presets as you like.
+
+**All images** plays every source's images in the order of the **Images** list: the sources from top to bottom (use the arrows next to each source), and inside each source the order shown in its details.
 
 ## Settings
 
@@ -65,12 +71,11 @@ UshiroE never shows your original files directly. Every image, whether it comes 
 | `ushiroe.enabled` | Show background images. |
 | `ushiroe.mode` | `fullscreen` for one image over the window, `parts` for separate images per part. |
 | `ushiroe.sources` | Image sources: `file`, `folder` or `url`, with `random`, `interval` (seconds) and `recursive` for folders and `refresh` (`never` or `startup`) for URLs. |
-| `ushiroe.fullscreen` | Image, opacity, fit, position and blur for the full window. The image is a source id, or `*` for all images. |
+| `ushiroe.fullscreen` | Image, opacity, fit, position and blur for the full window. The image is a source id, `*` for all images, or `preset:<id>`. Sources also have `changeOnStartupOnly`. |
 | `ushiroe.editor`, `ushiroe.sidebar`, `ushiroe.auxiliaryBar`, `ushiroe.panel` | The same, plus `enabled`, for each part. |
 | `ushiroe.transition` | Seconds the cross-fade between images takes. |
-| `ushiroe.shuffleInterval` | Seconds between images for All images (`*`); 0 changes only at startup. |
-| `ushiroe.presets` | Saved layouts. |
-| `ushiroe.randomPresetOnStartup` | Apply a random preset each time VS Code starts. |
+| `ushiroe.allImages` | How All images (`*`) takes turns: `random`, `interval` (seconds) and `changeOnStartupOnly`. |
+| `ushiroe.presets` | Your presets: a name, the images in order, and the same three settings. |
 | `ushiroe.libraryFolder` | Folder for the image copies; empty means `UshiroE` in your Pictures folder. |
 | `ushiroe.backImage.priority` | Who manages the background while BackImage is active: `ushiroe` (default) or `backImage`. |
 | `ushiroe.patch.hideCorruptWarning` | Update VS Code's checksum so it does not report the installation as corrupt. |
