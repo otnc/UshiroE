@@ -39,7 +39,7 @@
   "config.area.position": "CSS background-position, such as `center` or `right bottom`.",
   "config.area.blur": "Blur radius in pixels.",
   "config.transition": "Seconds the cross-fade between rotating images takes.",
-  "config.patch.hideCorruptWarning": "Update VS Code's checksum for the patched file so that VS Code does not report the installation as corrupt.",
+  "config.patch.hideCorruptWarning": "Update VS Code's checksum for the patched file so that VS Code does not report the installation as corrupt. UshiroE only does this for files it verified, and puts VS Code's own checksum back when the patch is removed.",
   "config.patch.autoRepair": "Re-apply the patch automatically when VS Code was updated and the patch is gone.",
   "command.refreshImages": "Copy and Download All Images Again",
   "command.refreshSource": "Copy or Download This Image Again",
@@ -56,5 +56,9 @@
   "config.shuffleInterval": "Seconds between images when an area shows all images (`*`). 0 changes the image only at startup.",
   "config.presets": "Saved layouts: the mode and every area's settings. Manage them from the UshiroE view.",
   "config.randomPresetOnStartup": "Apply a random preset each time VS Code starts.",
-  "config.libraryFolder": "Folder UshiroE copies images into. Leave empty to use `UshiroE` in your Pictures folder. Changing it copies the images again; the old folder is kept."
+  "config.libraryFolder": "Folder UshiroE copies images into. Leave empty to use `UshiroE` in your Pictures folder. Changing it copies the images again; the old folder is kept.",
+  "command.restoreWorkbench": "Restore VS Code Workbench",
+  "config.backImage.priority": "Which extension manages the background when BackImage is also installed. Both change the same VS Code files, so only one may do it at a time.",
+  "config.backImage.priority.ushiroe": "UshiroE manages it. While BackImage is active, UshiroE changes nothing and asks you to uninstall or disable BackImage.",
+  "config.backImage.priority.backImage": "BackImage manages it while it is active. UshiroE changes nothing and does not repair its patch."
 }

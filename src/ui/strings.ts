@@ -17,8 +17,28 @@ export function strings() {
     repair: l10n.t("Repair Patch"),
     removePatch: l10n.t("Remove Patch"),
     backImageConflict: l10n.t(
-      "BackImage's patch is still installed. Import its settings and uninstall it to avoid conflicts."
+      "BackImage is active and changes the same VS Code files. UshiroE changes nothing until BackImage is uninstalled or disabled."
     ),
+    uninstallBackImage: l10n.t("Uninstall BackImage"),
+    disableBackImage: l10n.t("Disable BackImage"),
+    letBackImageTakeOver: l10n.t("Let BackImage Take Over"),
+    backImageManaging: l10n.t(
+      "BackImage is managing the background. UshiroE does not change VS Code's files while it is active."
+    ),
+    letUshiroeManage: l10n.t("Let UshiroE Manage It"),
+    priorityIgnored: l10n.t(
+      "BackImage is set to manage the background, but it is not running, so UshiroE does."
+    ),
+    waitingForRestart: l10n.t(
+      "Restart VS Code so that BackImage stops running. UshiroE applies its patch after the restart."
+    ),
+    problemTruncated: l10n.t(
+      "VS Code's workbench file looks truncated or damaged. UshiroE will not change it. Restore it, or reinstall VS Code."
+    ),
+    problemModified: l10n.t(
+      "VS Code's workbench file was changed by something other than UshiroE, so UshiroE will not change it. Restore it, or reinstall VS Code."
+    ),
+    restoreWorkbench: l10n.t("Restore VS Code Workbench"),
     importBackImage: l10n.t("Import from BackImage"),
     mode: l10n.t("Mode"),
     modeFullscreen: l10n.t("Full window"),

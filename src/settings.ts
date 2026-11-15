@@ -9,7 +9,9 @@ import {
   type Preset,
   type UshiroeSettings,
 } from "./core/model";
+import { oneOf } from "./core/guards";
 import { areaToConfigValue, normalizeSettings, sourceToConfigValue } from "./core/normalize";
+import { BACKIMAGE_PRIORITIES, type BackImagePriority } from "./core/ownership";
 
 export const SECTION = "ushiroe";
 
@@ -34,6 +36,7 @@ export function readSettings(): UshiroeSettings {
 export interface PatchOptions {
   hideCorruptWarning: boolean;
   autoRepair: boolean;
+  backImagePriority: BackImagePriority;
 }
 
 export function readPatchOptions(): PatchOptions {
@@ -41,7 +44,16 @@ export function readPatchOptions(): PatchOptions {
   return {
     hideCorruptWarning: current.get<boolean>("patch.hideCorruptWarning", true),
     autoRepair: current.get<boolean>("patch.autoRepair", true),
+    backImagePriority: oneOf<BackImagePriority>(
+      BACKIMAGE_PRIORITIES,
+      current.get("backImage.priority"),
+      "ushiroe"
+    ),
   };
+}
+
+export function setBackImagePriority(priority: BackImagePriority): Promise<void> {
+  return write("backImage.priority", priority);
 }
 
 /** The library folder the user chose, or null to use the default under the Pictures folder. */

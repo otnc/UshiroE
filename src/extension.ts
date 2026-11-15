@@ -32,16 +32,20 @@ const POLL_INTERVAL = 1500;
 export interface UshiroeApi {
   liveFile: string;
   patcher: Patcher;
+  patch: PatchManager;
   live: LiveSync;
   library: LibraryManager;
+  /** This extension's log folder, inside the window's log folder. */
+  logDir: string;
 }
 
 export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
   const store = new LiveStore(context.globalStorageUri.fsPath);
-  const patcher = new Patcher(Uri.joinPath(context.extensionUri, "dist", "runtime.js").fsPath, {
-    configUrl: store.url,
-    pollInterval: POLL_INTERVAL,
-  });
+  const patcher = new Patcher(
+    Uri.joinPath(context.extensionUri, "dist", "runtime.js").fsPath,
+    { configUrl: store.url, pollInterval: POLL_INTERVAL },
+    context.globalStorageUri.fsPath
+  );
   const patch = new PatchManager(context, patcher);
   const library = new LibraryManager();
   const live = new LiveSync(store, library.lookup);
@@ -62,6 +66,9 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
       }
       live.schedule();
       void library.settingsChanged();
+      if (event.affectsConfiguration(`${SECTION}.backImage.priority`)) {
+        void patch.refresh();
+      }
       const enabled = readSettings().enabled;
       if (enabled && !wasEnabled) {
         void patch.ensure("enable");
@@ -89,6 +96,12 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
     commands.registerCommand("ushiroe.randomPreset", applyRandomPreset),
     commands.registerCommand("ushiroe.repairPatch", () => patch.ensure("manual")),
     commands.registerCommand("ushiroe.removePatch", () => patch.remove()),
+    commands.registerCommand("ushiroe.restoreWorkbench", () => patch.restoreWorkbench()),
+    commands.registerCommand("ushiroe.uninstallBackImage", () => migration.uninstall()),
+    commands.registerCommand("ushiroe.disableBackImage", () => migration.disable()),
+    commands.registerCommand("ushiroe.setBackImagePriority", (priority: unknown) =>
+      patch.setPriority(priority === "backImage" ? "backImage" : "ushiroe")
+    ),
     commands.registerCommand("ushiroe.importBackImage", () => migration.import()),
     commands.registerCommand("ushiroe.exportSettings", exportSettings),
     commands.registerCommand("ushiroe.importSettings", importSettings),
@@ -100,15 +113,19 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
   await applyRandomPresetOnStartup(context);
   await live.sync();
   await patch.refresh();
-  // Not awaited: the consent dialog or an administrator prompt must not hold up activation.
-  if (wasEnabled) {
-    void patch.ensure("startup");
-  }
+  // Not awaited: dialogs and administrator prompts must not hold up activation.
+  void (async () => {
+    await patch.offerLeftoverRemoval();
+    if (wasEnabled) {
+      // Right after BackImage stopped, the patch is due regardless of the repair limit.
+      await patch.ensure((await migration.takePatchAfterRestart()) ? "enable" : "startup");
+    }
+  })();
   // Copying and downloading can take a while; the live config follows once they finish.
   void library.startup();
   void migration.offer();
 
-  return { liveFile: store.file, patcher, live, library };
+  return { liveFile: store.file, patcher, patch, live, library, logDir: context.logUri.fsPath };
 }
 
 export function deactivate(): void {}

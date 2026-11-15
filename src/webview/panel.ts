@@ -7,6 +7,7 @@ import {
   type Preset,
   type UshiroeSettings,
 } from "../core/model";
+import type { Ownership } from "../core/ownership";
 import type { Strings } from "../ui/strings";
 
 interface SourceView extends ImageSource {
@@ -23,6 +24,9 @@ interface State {
     hasBackImage: boolean;
     backImageInstalled: boolean;
     restartPending: boolean;
+    waitingForRestart: boolean;
+    ownership: Ownership;
+    problem: "truncated" | "modified" | null;
   };
 }
 
@@ -96,6 +100,52 @@ function options(values: [string, string][], selected: string): string {
     .join("");
 }
 
+function notice(kind: "info" | "warn" | "error", text: string, buttons: string[] = []): string {
+  const iconName = kind === "info" ? "info" : kind === "warn" ? "warning" : "error";
+  return `<div class="notice ${kind}">${icon(iconName)}<p>${escapeHtml(text)}</p>${buttons.length > 0 ? `<div class="button-row">${buttons.join("")}</div>` : ""}</div>`;
+}
+
+/** What the panel says about BackImage, damaged files and pending restarts. */
+function ownershipNotices(status: State["status"]): string[] {
+  const notices: string[] = [];
+  if (status.problem) {
+    notices.push(
+      notice("error", status.problem === "truncated" ? t.problemTruncated : t.problemModified, [
+        button(t.restoreWorkbench, "cmd:ushiroe.restoreWorkbench", { icon: "history" }),
+      ])
+    );
+  }
+  switch (status.ownership.kind) {
+    case "conflict":
+      notices.push(
+        notice("warn", t.backImageConflict, [
+          button(t.uninstallBackImage, "cmd:ushiroe.uninstallBackImage"),
+          button(t.disableBackImage, "cmd:ushiroe.disableBackImage"),
+          button(t.letBackImageTakeOver, "cmd:ushiroe.setBackImagePriority|backImage"),
+        ])
+      );
+      break;
+    case "backImage":
+      notices.push(
+        notice("info", t.backImageManaging, [
+          button(t.letUshiroeManage, "cmd:ushiroe.setBackImagePriority|ushiroe"),
+        ])
+      );
+      break;
+    case "ushiroe":
+      if (status.ownership.priorityIgnored) {
+        notices.push(notice("info", t.priorityIgnored));
+      }
+      break;
+  }
+  if (status.waitingForRestart) {
+    notices.push(
+      notice("info", t.waitingForRestart, [button(t.quit, "cmd:workbench.action.quit")])
+    );
+  }
+  return notices;
+}
+
 function renderStatus(current: State): string {
   const { settings, status } = current;
   const patchText = {
@@ -112,11 +162,7 @@ function renderStatus(current: State): string {
       `<div class="notice info">${icon("info")}<p>${escapeHtml(t.restartPending)}</p>${button(t.quit, "cmd:workbench.action.quit", { primary: true })}</div>`
     );
   }
-  if (status.hasBackImage || status.backImageInstalled) {
-    notices.push(
-      `<div class="notice warn">${icon("warning")}<p>${escapeHtml(t.backImageConflict)}</p>${button(t.importBackImage, "cmd:ushiroe.importBackImage")}</div>`
-    );
-  }
+  notices.push(...ownershipNotices(status));
   return `<section class="status">
   <div class="status-main">
     <span class="dot ${settings.enabled ? "on" : "off"}"></span>

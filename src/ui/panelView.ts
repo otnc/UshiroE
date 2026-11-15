@@ -65,6 +65,10 @@ const ALLOWED_COMMANDS: Record<string, boolean> = {
   "ushiroe.repairPatch": false,
   "ushiroe.removePatch": false,
   "ushiroe.importBackImage": false,
+  "ushiroe.uninstallBackImage": false,
+  "ushiroe.disableBackImage": false,
+  "ushiroe.setBackImagePriority": true,
+  "ushiroe.restoreWorkbench": false,
   "ushiroe.exportSettings": false,
   "ushiroe.importSettings": false,
   "ushiroe.openSettings": false,
@@ -232,6 +236,9 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
         hasBackImage: patch?.hasBackImage ?? false,
         backImageInstalled: this.migration.installed,
         restartPending: this.patch.restartPending,
+        waitingForRestart: this.patch.waitingForRestart,
+        ownership: this.patch.ownership(),
+        problem: patch?.problem ?? null,
       },
     });
   }

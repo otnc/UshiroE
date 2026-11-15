@@ -4,7 +4,7 @@ import path from "node:path";
 import { type ExtensionContext, Uri, commands, extensions, l10n, window } from "vscode";
 
 import type { PatchManager } from "../patchManager";
-import { isPristine, readSettings, replaceSettings } from "../settings";
+import { isPristine, replaceSettings } from "../settings";
 import { confirmReplaceSettings, promptRestart } from "../ui/prompts";
 import {
   BACKIMAGE_EXTENSION_ID,
@@ -14,6 +14,7 @@ import {
 } from "./backimage";
 
 const PROMPT_DONE_KEY = "backImagePromptDone";
+const PATCH_AFTER_RESTART_KEY = "patchAfterBackImageRestart";
 
 interface FoundState {
   label: string;
@@ -138,22 +139,48 @@ export class BackImageMigration {
     }
   }
 
-  private async uninstall(): Promise<void> {
-    const removed = await this.patch.run(async () => {
-      // Without its backups, BackImage cannot overwrite the workbench script with a stale copy.
-      await this.patch.patcher.removeBackImageLeftovers();
+  /**
+   * Uninstalls BackImage. Its code stays loaded until VS Code restarts, so UshiroE changes
+   * nothing now and applies its patch on the next start, after asking to delete the leftovers.
+   */
+  async uninstall(): Promise<void> {
+    try {
       await commands.executeCommand(
         "workbench.extensions.uninstallExtension",
         BACKIMAGE_EXTENSION_ID
       );
-    });
-    if (!removed) {
+    } catch (error) {
+      void window.showErrorMessage(String(error));
       return;
     }
-    if (readSettings().enabled && this.patch.status?.state !== "applied") {
-      await this.patch.ensure("enable");
-      return;
+    await this.afterBackImageStopped();
+  }
+
+  /** VS Code has no command to disable one extension, so this opens BackImage's page. */
+  async disable(): Promise<void> {
+    await commands.executeCommand("extension.open", BACKIMAGE_EXTENSION_ID);
+    void window.showInformationMessage(
+      l10n.t('Click "Disable" on BackImage\'s page, then restart VS Code.')
+    );
+    await this.afterBackImageStopped();
+  }
+
+  private async afterBackImageStopped(): Promise<void> {
+    this.patch.requireRestartBeforePatch();
+    await this.context.globalState.update(PATCH_AFTER_RESTART_KEY, true);
+    await promptRestart(
+      l10n.t(
+        "Restart VS Code so that BackImage stops running. UshiroE applies its patch after the restart."
+      )
+    );
+  }
+
+  /** True once, on the first start after BackImage was uninstalled or disabled. */
+  async takePatchAfterRestart(): Promise<boolean> {
+    const pending = this.context.globalState.get<boolean>(PATCH_AFTER_RESTART_KEY) === true;
+    if (pending) {
+      await this.context.globalState.update(PATCH_AFTER_RESTART_KEY, undefined);
     }
-    await promptRestart(l10n.t("BackImage was uninstalled. Restart VS Code to finish."));
+    return pending;
   }
 }

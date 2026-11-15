@@ -458,3 +458,11 @@ summary {
   text-overflow: ellipsis;
   font-weight: 600;
 }
+
+.notice.error {
+  border-left-color: var(--vscode-errorForeground);
+}
+
+.notice .button-row {
+  grid-column: 2;
+}

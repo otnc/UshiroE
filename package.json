@@ -208,6 +208,12 @@
         "title": "%command.randomPreset%",
         "category": "UshiroE",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "ushiroe.restoreWorkbench",
+        "title": "%command.restoreWorkbench%",
+        "category": "UshiroE",
+        "icon": "$(history)"
       }
     ],
     "viewsContainers": {
@@ -284,6 +290,11 @@
         {
           "command": "ushiroe.openLibrary",
           "group": "4_library@2",
+          "when": "view == ushiroe.panel"
+        },
+        {
+          "command": "ushiroe.restoreWorkbench",
+          "group": "1_patch@3",
           "when": "view == ushiroe.panel"
         }
       ],
@@ -716,6 +727,21 @@
           "scope": "application",
           "order": 12,
           "markdownDescription": "%config.libraryFolder%"
+        },
+        "ushiroe.backImage.priority": {
+          "type": "string",
+          "enum": [
+            "ushiroe",
+            "backImage"
+          ],
+          "enumDescriptions": [
+            "%config.backImage.priority.ushiroe%",
+            "%config.backImage.priority.backImage%"
+          ],
+          "default": "ushiroe",
+          "scope": "application",
+          "order": 19,
+          "markdownDescription": "%config.backImage.priority%"
         },
         "ushiroe.patch.hideCorruptWarning": {
           "type": "boolean",
