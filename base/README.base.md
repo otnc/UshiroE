@@ -16,8 +16,8 @@ UshiroE (後ろ絵) は、VS Code の背景に画像を表示する拡張機能�
 
 - **Full window or per part**: the editor, the primary side bar, the secondary side bar (where Chat lives) and the panel can each have their own image.
 - **Live updates**: changing an image, the opacity, the fit or the blur takes effect within a couple of seconds. No reload is needed, apart from a single restart when the patch is first installed.
-- **Folders and URLs**: a folder rotates through its images at a fixed interval, in order or at random, optionally including subfolders. New files in the folder are picked up automatically. Images from `http://` and `https://` URLs are downloaded once or again at every startup.
-- **One image folder**: every image is copied into `UshiroE` in your Pictures folder (or a folder you choose) under a short ASCII name, so paths with Japanese or other non-ASCII characters never cause trouble, and the background stays when the original is moved.
+- **Folders and URLs**: a folder's images rotate at a fixed interval, in order or at random, optionally including subfolders. Images from `http://` and `https://` URLs are downloaded once or again at every startup.
+- **One image folder**: every image is copied into `UshiroE` in your Pictures folder (or a folder you choose) under a short ASCII name when you add it, so paths with Japanese or other non-ASCII characters never cause trouble, and the background stays when the original is moved or deleted.
 - **Random everything**: show all images in random order, save layouts as presets, and apply a random preset on demand or at every startup.
 - **Fit, position and blur** per area, and a cross-fade when images change. The title bar with the menus always stays clear.
 - **Next Image** command to skip to the next image right away.
@@ -30,8 +30,8 @@ UshiroE (後ろ絵) は、VS Code の背景に画像を表示する拡張機能�
 
 - **ウィンドウ全体またはパーツごと**: エディター、プライマリ サイドバー、セカンダリ サイドバー (チャットがある側)、パネルにそれぞれ別の画像を設定できます。
 - **即時反映**: 画像、不透明度、サイズ、ぼかしを変えると数秒以内に反映されます。パッチを初めて適用したときに 1 回再起動するだけで、それ以降の再読み込みは不要です。
-- **フォルダと URL**: フォルダを指定すると、中の画像を一定間隔で順番またはランダムに切り替えます。サブフォルダを含めることもできます。フォルダに追加した画像は自動で反映されます。`http://` と `https://` の URL の画像は、1 回だけ、または起動するたびにダウンロードします。
-- **画像フォルダに集約**: すべての画像をピクチャフォルダ内の `UshiroE` (または選んだフォルダ) に ASCII の短い名前でコピーします。日本語などを含むパスでも問題が起きず、元の画像を移動しても背景は消えません。
+- **フォルダと URL**: フォルダを指定すると、中の画像を一定間隔で順番またはランダムに切り替えます。サブフォルダを含めることもできます。`http://` と `https://` の URL の画像は、1 回だけ、または起動するたびにダウンロードします。
+- **画像フォルダに集約**: すべての画像をピクチャフォルダ内の `UshiroE` (または選んだフォルダ) に、追加したときに ASCII の短い名前でコピーします。日本語などを含むパスでも問題が起きず、元の画像を移動したり削除したりしても背景は消えません。
 - **ランダム**: すべての画像をランダムに表示したり、レイアウトをプリセットとして保存して、ランダムなプリセットを好きなときや起動時に適用したりできます。
 - エリアごとの **サイズ、位置、ぼかし** の設定と、画像切り替え時のクロスフェード。メニューのあるタイトルバーには画像を重ねません。
 - すぐに次の画像へ切り替える **次の画像** コマンド。
@@ -95,7 +95,8 @@ BackImage が動いている間、UshiroE は VS Code のファイルを一切�
 
 UshiroE never shows your original files directly. Every image, whether it comes from a file, a folder, a URL or BackImage, is copied into `UshiroE` in your Pictures folder, with one subfolder per source and short ASCII file names. This avoids trouble with paths that contain Japanese or other non-ASCII characters, and the background keeps working when the original is moved or deleted.
 
-- Folder sources are mirrored: images added to or removed from the original folder are copied or removed automatically.
+- Images are copied once, when you add them. After that the source no longer depends on the original file or folder, which is only shown as "Imported from" in the source's details.
+- To add images to a source, use **Add Images** in its details, or put image files into its subfolder (**Open Folder**). Deleting a file there removes it from the background.
 - Use **Change** in the view's Image folder section (or `ushiroe.libraryFolder`) to pick another folder, and **Use Default** to go back. The old folder is left as it is.
 - Only subfolders UshiroE created (they contain a `manifest.json`) are ever deleted, so other files you keep there are safe.
 :::
@@ -104,7 +105,8 @@ UshiroE never shows your original files directly. Every image, whether it comes 
 
 UshiroE は元のファイルを直接表示しません。ファイル、フォルダ、URL、BackImage のどこから来た画像も、ピクチャフォルダ内の `UshiroE` に、ソースごとのサブフォルダと ASCII の短いファイル名でコピーします。日本語などを含むパスで問題が起きることを防ぎ、元の画像を移動したり削除したりしても背景はそのまま表示されます。
 
-- フォルダのソースは同期されます。元のフォルダに追加した画像や削除した画像は、自動でコピーまたは削除されます。
+- 画像は追加したときに 1 回だけコピーします。その後は元のファイルやフォルダとつながらず、元の場所はソースの詳細に「取り込み元」として表示するだけです。
+- ソースに画像を足すときは、詳細の **画像を追加** を使うか、そのソースのサブフォルダ (**フォルダを開く**) に画像ファイルを入れてください。そこからファイルを削除すると、背景からも消えます。
 - ビューの「画像フォルダ」にある **変更** (または `ushiroe.libraryFolder`) で別のフォルダを選べます。**既定に戻す** で元に戻せます。それまでのフォルダはそのまま残ります。
 - 削除するのは UshiroE が作ったサブフォルダ (`manifest.json` があるもの) だけなので、ほかに置いたファイルが消えることはありません。
 :::

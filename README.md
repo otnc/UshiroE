@@ -12,8 +12,8 @@ UshiroE (後ろ絵, "the picture behind") puts background images behind VS Code:
 
 - **Full window or per part**: the editor, the primary side bar, the secondary side bar (where Chat lives) and the panel can each have their own image.
 - **Live updates**: changing an image, the opacity, the fit or the blur takes effect within a couple of seconds. No reload is needed, apart from a single restart when the patch is first installed.
-- **Folders and URLs**: a folder rotates through its images at a fixed interval, in order or at random, optionally including subfolders. New files in the folder are picked up automatically. Images from `http://` and `https://` URLs are downloaded once or again at every startup.
-- **One image folder**: every image is copied into `UshiroE` in your Pictures folder (or a folder you choose) under a short ASCII name, so paths with Japanese or other non-ASCII characters never cause trouble, and the background stays when the original is moved.
+- **Folders and URLs**: a folder's images rotate at a fixed interval, in order or at random, optionally including subfolders. Images from `http://` and `https://` URLs are downloaded once or again at every startup.
+- **One image folder**: every image is copied into `UshiroE` in your Pictures folder (or a folder you choose) under a short ASCII name when you add it, so paths with Japanese or other non-ASCII characters never cause trouble, and the background stays when the original is moved or deleted.
 - **Random everything**: show all images in random order, save layouts as presets, and apply a random preset on demand or at every startup.
 - **Fit, position and blur** per area, and a cross-fade when images change. The title bar with the menus always stays clear.
 - **Next Image** command to skip to the next image right away.
@@ -47,7 +47,8 @@ Image lists become image sources, and the selected images, part settings, random
 
 UshiroE never shows your original files directly. Every image, whether it comes from a file, a folder, a URL or BackImage, is copied into `UshiroE` in your Pictures folder, with one subfolder per source and short ASCII file names. This avoids trouble with paths that contain Japanese or other non-ASCII characters, and the background keeps working when the original is moved or deleted.
 
-- Folder sources are mirrored: images added to or removed from the original folder are copied or removed automatically.
+- Images are copied once, when you add them. After that the source no longer depends on the original file or folder, which is only shown as "Imported from" in the source's details.
+- To add images to a source, use **Add Images** in its details, or put image files into its subfolder (**Open Folder**). Deleting a file there removes it from the background.
 - Use **Change** in the view's Image folder section (or `ushiroe.libraryFolder`) to pick another folder, and **Use Default** to go back. The old folder is left as it is.
 - Only subfolders UshiroE created (they contain a `manifest.json`) are ever deleted, so other files you keep there are safe.
 
