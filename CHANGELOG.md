@@ -1,5 +1,16 @@
 # Change Log
 
+## [0.1.2]
+
+### Added
+
+- Add marketplace and CI badges to README files for better visibility
+
+
+### Fixed
+
+- Remove icon from add to preset summary for cleaner UI
+
 ## [0.1.1]
 
 ### Added
