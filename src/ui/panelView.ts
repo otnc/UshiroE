@@ -1,5 +1,4 @@
 import { randomBytes } from "node:crypto";
-import path from "node:path";
 
 import {
   type CancellationToken,
@@ -21,15 +20,17 @@ import {
   MODES,
   type Mode,
 } from "../core/model";
-import { resolveSourceImages } from "../core/resolve";
+import type { LibraryManager } from "../libraryManager";
 import type { LiveSync } from "../liveSync";
 import type { BackImageMigration } from "../migration/backimageFlow";
 import type { PatchManager } from "../patchManager";
 import {
-  removeSource,
   readSettings,
+  removeSource,
   setEnabled,
   setMode,
+  setRandomPresetOnStartup,
+  setShuffleInterval,
   updateArea,
   updateSource,
 } from "../settings";
@@ -39,24 +40,36 @@ type IncomingMessage =
   | { type: "ready" }
   | { type: "setEnabled"; value: boolean }
   | { type: "setMode"; value: Mode }
+  | { type: "setShuffleInterval"; value: number }
+  | { type: "setRandomPresetOnStartup"; value: boolean }
   | { type: "updateArea"; id: AreaId; patch: Partial<AreaSettings> }
   | { type: "updateSource"; id: string; patch: Partial<ImageSource> }
   | { type: "removeSource"; id: string }
-  | { type: "command"; command: string };
+  | { type: "command"; command: string; arg?: string };
 
-const ALLOWED_COMMANDS = new Set([
-  "ushiroe.addImageFile",
-  "ushiroe.addImageFolder",
-  "ushiroe.addImageUrl",
-  "ushiroe.nextImage",
-  "ushiroe.repairPatch",
-  "ushiroe.removePatch",
-  "ushiroe.importBackImage",
-  "ushiroe.exportSettings",
-  "ushiroe.importSettings",
-  "ushiroe.openSettings",
-  "workbench.action.quit",
-]);
+/** Commands the webview may run, and whether each one takes the clicked item's id. */
+const ALLOWED_COMMANDS: Record<string, boolean> = {
+  "ushiroe.addImageFile": false,
+  "ushiroe.addImageFolder": false,
+  "ushiroe.addImageUrl": false,
+  "ushiroe.nextImage": false,
+  "ushiroe.refreshImages": false,
+  "ushiroe.refreshSource": true,
+  "ushiroe.openLibrary": false,
+  "ushiroe.chooseLibraryFolder": false,
+  "ushiroe.resetLibraryFolder": false,
+  "ushiroe.savePreset": false,
+  "ushiroe.applyPreset": true,
+  "ushiroe.deletePreset": true,
+  "ushiroe.randomPreset": false,
+  "ushiroe.repairPatch": false,
+  "ushiroe.removePatch": false,
+  "ushiroe.importBackImage": false,
+  "ushiroe.exportSettings": false,
+  "ushiroe.importSettings": false,
+  "ushiroe.openSettings": false,
+  "workbench.action.quit": false,
+};
 
 const AREA_PATCH_KEYS = new Set<keyof AreaSettings>([
   "enabled",
@@ -72,7 +85,7 @@ const SOURCE_PATCH_KEYS = new Set<keyof ImageSource>([
   "random",
   "interval",
   "recursive",
-  "path",
+  "refresh",
 ]);
 
 function pickKeys<T extends object>(patch: unknown, allowed: Set<keyof T>): Partial<T> {
@@ -88,12 +101,13 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
   static readonly viewId = "ushiroe.panel";
 
   private view: WebviewView | undefined;
-  private rootsKey = "";
+  private allowedRoot: string | undefined;
   private readonly subscriptions: Disposable[] = [];
 
   constructor(
     private readonly extensionUri: Uri,
     private readonly patch: PatchManager,
+    private readonly library: LibraryManager,
     live: LiveSync,
     private readonly migration: BackImageMigration
   ) {
@@ -109,8 +123,8 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
     _token: CancellationToken
   ): void {
     this.view = view;
-    this.rootsKey = "";
-    this.updateOptions(view.webview, readSettings().sources);
+    this.allowedRoot = undefined;
+    this.updateOptions(view.webview);
     view.webview.html = this.html(view.webview);
     view.webview.onDidReceiveMessage(
       (message: IncomingMessage) => void this.handle(message),
@@ -128,22 +142,16 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
     );
   }
 
-  /** Webviews can only show local files under their resource roots, so each source folder is one. */
-  private updateOptions(webview: Webview, sources: ImageSource[]): void {
-    const folders = sources
-      .filter((source) => source.type !== "url")
-      .map((source) => (source.type === "folder" ? source.path : path.dirname(source.path)));
-    const key = JSON.stringify([...new Set(folders)].sort());
-    if (key === this.rootsKey) {
+  /** Every image shown is a copy in the library, so the library is the only folder needed. */
+  private updateOptions(webview: Webview): void {
+    const root = this.library.root;
+    if (root === this.allowedRoot) {
       return;
     }
-    this.rootsKey = key;
+    this.allowedRoot = root;
     webview.options = {
       enableScripts: true,
-      localResourceRoots: [
-        Uri.joinPath(this.extensionUri, "dist"),
-        ...folders.map((folder) => Uri.file(folder)),
-      ],
+      localResourceRoots: [Uri.joinPath(this.extensionUri, "dist"), Uri.file(root)],
     };
   }
 
@@ -160,6 +168,14 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
           await setMode(message.value);
         }
         return;
+      case "setShuffleInterval":
+        if (typeof message.value === "number" && Number.isFinite(message.value)) {
+          await setShuffleInterval(message.value);
+        }
+        return;
+      case "setRandomPresetOnStartup":
+        await setRandomPresetOnStartup(message.value === true);
+        return;
       case "updateArea":
         if ((AREA_IDS as readonly string[]).includes(message.id)) {
           await updateArea(message.id, pickKeys<AreaSettings>(message.patch, AREA_PATCH_KEYS));
@@ -171,11 +187,16 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
       case "removeSource":
         await removeSource(message.id);
         return;
-      case "command":
-        if (ALLOWED_COMMANDS.has(message.command)) {
-          await commands.executeCommand(message.command);
+      case "command": {
+        const takesArg = ALLOWED_COMMANDS[message.command];
+        if (takesArg === undefined) {
+          return;
         }
+        await (takesArg
+          ? commands.executeCommand(message.command, message.arg)
+          : commands.executeCommand(message.command));
         return;
+      }
     }
   }
 
@@ -184,26 +205,28 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
     if (!view?.visible) {
       return;
     }
+    this.updateOptions(view.webview);
     const settings = readSettings();
-    this.updateOptions(view.webview, settings.sources);
-    const sources = await Promise.all(
-      settings.sources.map(async (source) => {
-        const images = await resolveSourceImages(source);
-        const first = images[0];
-        const thumbnail =
-          first === undefined
+    const sources = settings.sources.map((source) => {
+      const images = this.library.lookup(source);
+      return {
+        ...source,
+        count: images.length,
+        thumbnail:
+          images[0] === undefined
             ? null
-            : source.type === "url"
-              ? first
-              : view.webview.asWebviewUri(Uri.file(first)).toString();
-        return { ...source, count: images.length, thumbnail };
-      })
-    );
+            : view.webview.asWebviewUri(Uri.file(images[0])).toString(),
+      };
+    });
     const patch = this.patch.status;
     await view.webview.postMessage({
       type: "state",
       settings,
       sources,
+      library: {
+        root: this.library.root,
+        isDefault: this.library.root === this.library.defaultRoot,
+      },
       status: {
         patch: patch?.state ?? "unknown",
         hasBackImage: patch?.hasBackImage ?? false,
@@ -219,7 +242,7 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
       webview.asWebviewUri(Uri.joinPath(this.extensionUri, "dist", file)).toString();
     const csp = [
       "default-src 'none'",
-      `img-src ${webview.cspSource} https: data:`,
+      `img-src ${webview.cspSource} data:`,
       `style-src ${webview.cspSource}`,
       `font-src ${webview.cspSource}`,
       `script-src 'nonce-${nonce}'`,

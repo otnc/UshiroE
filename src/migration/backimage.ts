@@ -66,6 +66,7 @@ export function convertBackImageState(raw: unknown): UshiroeSettings | null {
       random: randoms[id] === true,
       interval: Math.max(0, finiteNumber(intervals[id], DEFAULT_INTERVAL_SECONDS * 1000) / 1000),
       recursive: false,
+      refresh: "never",
     };
     if (!settings.sources.some((existing) => existing.id === source.id)) {
       settings.sources.push(source);

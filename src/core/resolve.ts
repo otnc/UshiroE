@@ -1,92 +1,60 @@
-import fs from "node:fs";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
-
+import { toWorkbenchUrl, MAX_FOLDER_IMAGES } from "./files";
 import { EMPTY_LIVE_CONFIG, LIVE_CONFIG_VERSION, type LiveArea, type LiveConfig } from "./live";
-import { IMAGE_EXTENSIONS, type ImageSource, type UshiroeSettings, activeAreas } from "./model";
+import { ALL_SOURCES, type ImageSource, type UshiroeSettings, activeAreas } from "./model";
 
-/** Upper bound per folder, so a huge photo library cannot bloat the live config. */
-export const MAX_FOLDER_IMAGES = 2000;
+/** The local image files to show for a source, in order. */
+export type ImageLookup = (source: ImageSource) => string[];
 
-export function isSupportedImage(filePath: string): boolean {
-  return (IMAGE_EXTENSIONS as readonly string[]).includes(path.extname(filePath).toLowerCase());
+interface Playlist {
+  images: string[];
+  random: boolean;
+  /** Milliseconds between images. */
+  interval: number;
 }
 
-/** The workbench CSP only allows `https:` for remote images. */
-export function isAllowedRemoteUrl(value: string): boolean {
-  try {
-    return new URL(value).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-/** Converts a local path to the `vscode-file://vscode-app/...` URL that the workbench can load. */
-export function toWorkbenchUrl(filePath: string): string {
-  return pathToFileURL(filePath).href.replace(/^file:\/\//, "vscode-file://vscode-app");
-}
-
-const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-
-export async function listFolderImages(folder: string, recursive: boolean): Promise<string[]> {
-  const entries = await fs.promises.readdir(folder, { withFileTypes: true, recursive });
-  return entries
-    .filter((entry) => entry.isFile() && isSupportedImage(entry.name))
-    .map((entry) => path.join(entry.parentPath, entry.name))
-    .sort((a, b) => naturalOrder.compare(a, b))
-    .slice(0, MAX_FOLDER_IMAGES);
-}
-
-/** Local paths or https URLs for one source; missing files resolve to an empty list. */
-export async function resolveSourceImages(source: ImageSource): Promise<string[]> {
-  try {
-    switch (source.type) {
-      case "url":
-        return isAllowedRemoteUrl(source.path) ? [source.path] : [];
-      case "file": {
-        const stat = await fs.promises.stat(source.path);
-        return stat.isFile() && isSupportedImage(source.path) ? [source.path] : [];
-      }
-      case "folder":
-        return await listFolderImages(source.path, source.recursive);
-    }
-  } catch {
-    return [];
-  }
-}
-
-function toLoadableUrl(image: string): string {
-  return isAllowedRemoteUrl(image) ? image : toWorkbenchUrl(image);
-}
-
-export async function buildLiveConfig(
+function playlistFor(
+  sourceId: string,
   settings: UshiroeSettings,
-  cycle: number
-): Promise<LiveConfig> {
+  imagesOf: ImageLookup
+): Playlist | null {
+  if (sourceId === ALL_SOURCES) {
+    const images = [...new Set(settings.sources.flatMap(imagesOf))].slice(0, MAX_FOLDER_IMAGES);
+    return { images, random: true, interval: Math.round(settings.shuffleInterval * 1000) };
+  }
+  const source = settings.sources.find((candidate) => candidate.id === sourceId);
+  return source
+    ? {
+        images: imagesOf(source),
+        random: source.random,
+        interval: Math.round(source.interval * 1000),
+      }
+    : null;
+}
+
+export function buildLiveConfig(
+  settings: UshiroeSettings,
+  cycle: number,
+  imagesOf: ImageLookup
+): LiveConfig {
   if (!settings.enabled) {
     return { ...EMPTY_LIVE_CONFIG, transition: settings.transition, cycle };
   }
-  const sources = new Map(settings.sources.map((source) => [source.id, source]));
   const areas: LiveArea[] = [];
   for (const id of activeAreas(settings)) {
     const area = settings.areas[id];
-    const source = area.source === null ? undefined : sources.get(area.source);
-    if (!source) {
-      continue;
-    }
-    const images = await resolveSourceImages(source);
-    if (images.length === 0) {
+    const playlist = area.source === null ? null : playlistFor(area.source, settings, imagesOf);
+    if (!playlist || playlist.images.length === 0) {
       continue;
     }
     areas.push({
       id,
-      images: images.map(toLoadableUrl),
+      images: playlist.images.map(toWorkbenchUrl),
       opacity: area.opacity,
       size: area.size,
       position: area.position,
       blur: area.blur,
-      random: source.random,
-      interval: Math.round(source.interval * 1000),
+      random: playlist.random,
+      interval: playlist.interval,
     });
   }
   return { v: LIVE_CONFIG_VERSION, enabled: true, transition: settings.transition, areas, cycle };

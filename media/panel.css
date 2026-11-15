@@ -406,3 +406,55 @@ summary {
   gap: var(--gap);
   padding: 4px 8px 8px;
 }
+
+/* Library */
+
+.hint {
+  margin-bottom: 6px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.library-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--gap);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: var(--vscode-textBlockQuote-background);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+}
+
+.library-path span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Presets */
+
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 var(--gap);
+  padding: 0;
+  list-style: none;
+}
+
+.preset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.preset-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}

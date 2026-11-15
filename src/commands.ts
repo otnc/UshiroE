@@ -2,31 +2,34 @@ import fs from "node:fs";
 
 import { Uri, l10n, window } from "vscode";
 
+import { isDownloadableUrl } from "./core/downloads";
 import {
+  DEFAULT_INTERVAL_SECONDS,
   IMAGE_EXTENSIONS,
   type ImageSource,
   type SourceType,
-  createSourceId,
-  DEFAULT_INTERVAL_SECONDS,
+  type UrlRefresh,
+  createId,
 } from "./core/model";
 import { defaultSourceName, normalizeSettings } from "./core/normalize";
-import { isAllowedRemoteUrl } from "./core/resolve";
+import type { LibraryManager } from "./libraryManager";
 import { addSources, readSettings, replaceSettings, updateArea } from "./settings";
 import { confirmReplaceSettings } from "./ui/prompts";
 
 const EXPORT_FORMAT = "ushiroe-settings";
 
-function newSource(type: SourceType, path: string): ImageSource {
+function newSource(type: SourceType, path: string, refresh: UrlRefresh = "never"): ImageSource {
   let name = defaultSourceName(path);
   if (type === "url") {
     try {
-      name = defaultSourceName(new URL(path).pathname) || new URL(path).hostname;
+      const url = new URL(path);
+      name = defaultSourceName(url.pathname) || url.hostname;
     } catch {
       // Keep the raw value as the name.
     }
   }
   return {
-    id: createSourceId(),
+    id: createId(),
     name,
     type,
     path,
@@ -34,6 +37,7 @@ function newSource(type: SourceType, path: string): ImageSource {
     random: false,
     interval: DEFAULT_INTERVAL_SECONDS,
     recursive: false,
+    refresh,
   };
 }
 
@@ -68,15 +72,43 @@ export async function addImageFolder(): Promise<void> {
   await addAndShow((folders ?? []).map((folder) => newSource("folder", folder.fsPath)));
 }
 
-export async function addImageUrl(): Promise<void> {
-  const url = await window.showInputBox({
-    prompt: l10n.t("Image URL (https only)"),
-    placeHolder: "https://example.com/wallpaper.png",
-    validateInput: (value) =>
-      isAllowedRemoteUrl(value.trim()) ? undefined : l10n.t("Enter an https:// URL."),
-  });
-  if (url) {
-    await addAndShow([newSource("url", url.trim())]);
+export async function addImageUrl(library: LibraryManager): Promise<void> {
+  const url = (
+    await window.showInputBox({
+      prompt: l10n.t("Image URL"),
+      placeHolder: "https://example.com/wallpaper.png",
+      validateInput: (value) =>
+        isDownloadableUrl(value.trim()) ? undefined : l10n.t("Enter an http:// or https:// URL."),
+    })
+  )?.trim();
+  if (!url) {
+    return;
+  }
+  const refresh = await window.showQuickPick(
+    [
+      {
+        label: l10n.t("Download once"),
+        detail: l10n.t("Keep a copy in the UshiroE folder. Use Download Again to update it."),
+        value: "never" as const,
+      },
+      {
+        label: l10n.t("Download at every startup"),
+        detail: l10n.t(
+          "Fetch the image again each time VS Code starts, so changes at the URL show up."
+        ),
+        value: "startup" as const,
+      },
+    ],
+    { placeHolder: l10n.t("When should UshiroE download this image?") }
+  );
+  if (!refresh) {
+    return;
+  }
+  const source = newSource("url", url, refresh.value);
+  // Downloading before adding reports a bad URL right away instead of adding a broken source.
+  await library.sync([source], { refreshUrls: () => true, visible: true });
+  if (library.lookup(source).length > 0) {
+    await addAndShow([source]);
   }
 }
 

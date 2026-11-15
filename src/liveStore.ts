@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { LiveConfig } from "./core/live";
-import { toWorkbenchUrl } from "./core/resolve";
+import { toWorkbenchUrl } from "./core/files";
 
 /**
  * Stores the live config in the extension's global storage folder. VS Code's `vscode-file:`

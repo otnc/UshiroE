@@ -1,4 +1,6 @@
-import { type ExtensionContext, Uri, commands, window, workspace } from "vscode";
+import fs from "node:fs";
+
+import { type ExtensionContext, Uri, commands, env, window, workspace } from "vscode";
 
 import {
   addImageFiles,
@@ -7,11 +9,19 @@ import {
   exportSettings,
   importSettings,
 } from "./commands";
+import { LibraryManager } from "./libraryManager";
 import { LiveStore } from "./liveStore";
 import { LiveSync } from "./liveSync";
 import { BackImageMigration } from "./migration/backimageFlow";
 import { PatchManager } from "./patchManager";
 import { Patcher } from "./patcher";
+import {
+  applyPresetCommand,
+  applyRandomPreset,
+  applyRandomPresetOnStartup,
+  deletePreset,
+  savePreset,
+} from "./presetCommands";
 import { SECTION, readSettings, setEnabled } from "./settings";
 import { PanelViewProvider } from "./ui/panelView";
 
@@ -23,6 +33,7 @@ export interface UshiroeApi {
   liveFile: string;
   patcher: Patcher;
   live: LiveSync;
+  library: LibraryManager;
 }
 
 export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
@@ -32,21 +43,25 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
     pollInterval: POLL_INTERVAL,
   });
   const patch = new PatchManager(context, patcher);
-  const live = new LiveSync(store);
+  const library = new LibraryManager();
+  const live = new LiveSync(store, library.lookup);
   const migration = new BackImageMigration(context, patch);
-  const panel = new PanelViewProvider(context.extensionUri, patch, live, migration);
+  const panel = new PanelViewProvider(context.extensionUri, patch, library, live, migration);
 
   let wasEnabled = readSettings().enabled;
   context.subscriptions.push(
     patch,
+    library,
     live,
     panel,
+    library.onDidChange(() => live.schedule()),
     window.registerWebviewViewProvider(PanelViewProvider.viewId, panel),
     workspace.onDidChangeConfiguration((event) => {
       if (!event.affectsConfiguration(SECTION)) {
         return;
       }
       live.schedule();
+      void library.settingsChanged();
       const enabled = readSettings().enabled;
       if (enabled && !wasEnabled) {
         void patch.ensure("enable");
@@ -59,7 +74,19 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
     commands.registerCommand("ushiroe.nextImage", () => live.nextImage()),
     commands.registerCommand("ushiroe.addImageFile", addImageFiles),
     commands.registerCommand("ushiroe.addImageFolder", addImageFolder),
-    commands.registerCommand("ushiroe.addImageUrl", addImageUrl),
+    commands.registerCommand("ushiroe.addImageUrl", () => addImageUrl(library)),
+    commands.registerCommand("ushiroe.refreshImages", () => library.refreshAll()),
+    commands.registerCommand("ushiroe.refreshSource", (id: string) => library.refreshSource(id)),
+    commands.registerCommand("ushiroe.chooseLibraryFolder", () => library.chooseFolder()),
+    commands.registerCommand("ushiroe.resetLibraryFolder", () => library.resetFolder()),
+    commands.registerCommand("ushiroe.openLibrary", async () => {
+      await fs.promises.mkdir(library.root, { recursive: true });
+      await env.openExternal(Uri.file(library.root));
+    }),
+    commands.registerCommand("ushiroe.savePreset", savePreset),
+    commands.registerCommand("ushiroe.applyPreset", applyPresetCommand),
+    commands.registerCommand("ushiroe.deletePreset", deletePreset),
+    commands.registerCommand("ushiroe.randomPreset", applyRandomPreset),
     commands.registerCommand("ushiroe.repairPatch", () => patch.ensure("manual")),
     commands.registerCommand("ushiroe.removePatch", () => patch.remove()),
     commands.registerCommand("ushiroe.importBackImage", () => migration.import()),
@@ -70,14 +97,17 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
     )
   );
 
+  await applyRandomPresetOnStartup(context);
   await live.sync();
   await patch.refresh();
   if (wasEnabled) {
     await patch.ensure("startup");
   }
+  // Copying and downloading can take a while; the live config follows once they finish.
+  void library.startup();
   void migration.offer();
 
-  return { liveFile: store.file, patcher, live };
+  return { liveFile: store.file, patcher, live, library };
 }
 
 export function deactivate(): void {}

@@ -1,4 +1,12 @@
-import type { AreaId, AreaSettings, ImageSource, Mode, UshiroeSettings } from "../core/model";
+import {
+  ALL_SOURCES,
+  type AreaId,
+  type AreaSettings,
+  type ImageSource,
+  type Mode,
+  type Preset,
+  type UshiroeSettings,
+} from "../core/model";
 import type { Strings } from "../ui/strings";
 
 interface SourceView extends ImageSource {
@@ -9,6 +17,7 @@ interface SourceView extends ImageSource {
 interface State {
   settings: UshiroeSettings;
   sources: SourceView[];
+  library: { root: string; isDefault: boolean };
   status: {
     patch: "applied" | "outdated" | "missing" | "unknown";
     hasBackImage: boolean;
@@ -142,7 +151,11 @@ function renderArea(id: AreaId, area: AreaSettings, sources: SourceView[]): stri
   const isPart = id !== "fullscreen";
   const title = t[`area_${id}` as keyof Strings];
   const sourceOptions = options(
-    [["", t.noImage], ...sources.map((source): [string, string] => [source.id, source.name])],
+    [
+      ["", t.noImage],
+      [ALL_SOURCES, t.allImages],
+      ...sources.map((source): [string, string] => [source.id, source.name]),
+    ],
     area.source ?? ""
   );
   const positions: [string, string][] = POSITIONS.map(([value, key]) => [value, t[key]]);
@@ -188,7 +201,9 @@ function renderSource(source: SourceView): string {
     ? `<span class="error">${icon("error")} ${escapeHtml(t.notFound)}</span>`
     : source.type === "folder"
       ? escapeHtml(format(t.imageCount, source.count))
-      : "";
+      : source.type === "url"
+        ? escapeHtml(source.refresh === "startup" ? t.refresh_startup : t.refresh_never)
+        : "";
   const thumbnail = source.thumbnail
     ? `<img src="${escapeHtml(source.thumbnail)}" alt="" loading="lazy">`
     : icon(source.type === "folder" ? "folder" : source.type === "url" ? "globe" : "file-media");
@@ -197,7 +212,20 @@ function renderSource(source: SourceView): string {
       ? `<label class="field"><span>${escapeHtml(t.interval)}</span><input type="number" min="0" step="1" value="${source.interval}" data-source="${escapeHtml(source.id)}" data-field="interval"></label>
       <label class="check"><input type="checkbox" data-source="${escapeHtml(source.id)}" data-field="random"${source.random ? " checked" : ""}><span>${escapeHtml(t.random)}</span></label>
       <label class="check"><input type="checkbox" data-source="${escapeHtml(source.id)}" data-field="recursive"${source.recursive ? " checked" : ""}><span>${escapeHtml(t.recursive)}</span></label>`
-      : "";
+      : source.type === "url"
+        ? `<label class="field"><span>${escapeHtml(t.refresh)}</span><select data-source="${escapeHtml(source.id)}" data-field="refresh">${options(
+            [
+              ["never", t.refresh_never],
+              ["startup", t.refresh_startup],
+            ],
+            source.refresh
+          )}</select></label>`
+        : "";
+  const again = button(
+    source.type === "url" ? t.downloadAgain : t.copyAgain,
+    `cmd:ushiroe.refreshSource|${source.id}`,
+    { icon: "sync" }
+  );
   return `<li class="source${missing ? " missing" : ""}">
   <div class="source-main">
     <div class="thumb">${thumbnail}</div>
@@ -213,6 +241,7 @@ function renderSource(source: SourceView): string {
     <div class="details-body">
       <label class="field"><span>${escapeHtml(t.name)}</span><input type="text" value="${escapeHtml(source.name)}" data-source="${escapeHtml(source.id)}" data-field="name"></label>
       ${interval}
+      <div class="button-row">${again}</div>
     </div>
   </details>
 </li>`;
@@ -233,6 +262,52 @@ function renderSources(current: State): string {
     </div>
   </div>
   ${list}
+</section>`;
+}
+
+function renderLibrary(current: State): string {
+  return `<section>
+  <h2>${escapeHtml(t.library)}</h2>
+  <p class="hint">${escapeHtml(t.libraryHint)}</p>
+  <div class="library-path" title="${escapeHtml(current.library.root)}">${icon("folder-library")}<span>${escapeHtml(current.library.root)}</span></div>
+  <div class="button-row">
+    ${button(t.openLibrary, "cmd:ushiroe.openLibrary", { icon: "folder-opened" })}
+    ${button(t.chooseLibrary, "cmd:ushiroe.chooseLibraryFolder", { icon: "edit" })}
+    ${current.library.isDefault ? "" : button(t.resetLibrary, "cmd:ushiroe.resetLibraryFolder", { icon: "discard" })}
+    ${button(t.refreshImages, "cmd:ushiroe.refreshImages", { icon: "sync" })}
+  </div>
+</section>`;
+}
+
+function renderPreset(preset: Preset): string {
+  return `<li class="preset">
+  <span class="preset-name">${escapeHtml(preset.name)}</span>
+  <span class="badge">${escapeHtml(preset.mode === "fullscreen" ? t.modeFullscreen : t.modeParts)}</span>
+  <span class="spacer"></span>
+  ${button("", `cmd:ushiroe.applyPreset|${preset.id}`, { icon: "play", title: t.applyPreset })}
+  ${button("", `cmd:ushiroe.deletePreset|${preset.id}`, { icon: "trash", title: t.deletePreset })}
+</li>`;
+}
+
+function renderRandom(current: State): string {
+  const { settings } = current;
+  const list =
+    settings.presets.length === 0
+      ? `<p class="empty">${escapeHtml(t.noPresets)}</p>`
+      : `<ul class="presets">${settings.presets.map(renderPreset).join("")}</ul>`;
+  return `<section>
+  <div class="section-header">
+    <h2>${escapeHtml(t.presets)}</h2>
+    <div class="add-buttons">
+      ${button(t.savePreset, "cmd:ushiroe.savePreset", { icon: "save" })}
+      ${button(t.randomPreset, "cmd:ushiroe.randomPreset", { icon: "debug-restart" })}
+    </div>
+  </div>
+  ${list}
+  <div class="details-body">
+    <label class="check"><input type="checkbox" data-option="randomPresetOnStartup"${settings.randomPresetOnStartup ? " checked" : ""}><span>${escapeHtml(t.randomPresetOnStartup)}</span></label>
+    <label class="field"><span>${escapeHtml(t.shuffleInterval)}</span><input type="number" min="0" step="1" value="${settings.shuffleInterval}" data-option="shuffleInterval"></label>
+  </div>
 </section>`;
 }
 
@@ -262,6 +337,8 @@ function render(): void {
     renderMode(state.settings.mode),
     renderAreas(state),
     renderSources(state),
+    renderRandom(state),
+    renderLibrary(state),
     renderTransfer(),
   ].join("");
   if (focusKey) {
@@ -299,7 +376,8 @@ app.addEventListener("click", (event) => {
   } else if (action.startsWith("mode:")) {
     vscode.postMessage({ type: "setMode", value: action.slice(5) });
   } else if (action.startsWith("cmd:")) {
-    vscode.postMessage({ type: "command", command: action.slice(4) });
+    const [command, arg] = action.slice(4).split("|");
+    vscode.postMessage({ type: "command", command, arg });
   } else if (action.startsWith("remove:")) {
     vscode.postMessage({ type: "removeSource", id: action.slice(7) });
   }
@@ -317,6 +395,15 @@ app.addEventListener("input", (event) => {
 
 app.addEventListener("change", (event) => {
   const input = event.target as HTMLInputElement | HTMLSelectElement;
+  const option = input.dataset.option;
+  if (option === "randomPresetOnStartup") {
+    vscode.postMessage({ type: "setRandomPresetOnStartup", value: fieldValue(input) });
+    return;
+  }
+  if (option === "shuffleInterval") {
+    vscode.postMessage({ type: "setShuffleInterval", value: fieldValue(input) });
+    return;
+  }
   const field = input.dataset.field;
   if (!field) {
     return;

@@ -155,6 +155,55 @@
         "title": "%command.openSettings%",
         "category": "UshiroE",
         "icon": "$(gear)"
+      },
+      {
+        "command": "ushiroe.refreshImages",
+        "title": "%command.refreshImages%",
+        "category": "UshiroE",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "ushiroe.refreshSource",
+        "title": "%command.refreshSource%",
+        "category": "UshiroE"
+      },
+      {
+        "command": "ushiroe.openLibrary",
+        "title": "%command.openLibrary%",
+        "category": "UshiroE",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "ushiroe.chooseLibraryFolder",
+        "title": "%command.chooseLibraryFolder%",
+        "category": "UshiroE"
+      },
+      {
+        "command": "ushiroe.resetLibraryFolder",
+        "title": "%command.resetLibraryFolder%",
+        "category": "UshiroE"
+      },
+      {
+        "command": "ushiroe.savePreset",
+        "title": "%command.savePreset%",
+        "category": "UshiroE",
+        "icon": "$(save)"
+      },
+      {
+        "command": "ushiroe.applyPreset",
+        "title": "%command.applyPreset%",
+        "category": "UshiroE"
+      },
+      {
+        "command": "ushiroe.deletePreset",
+        "title": "%command.deletePreset%",
+        "category": "UshiroE"
+      },
+      {
+        "command": "ushiroe.randomPreset",
+        "title": "%command.randomPreset%",
+        "category": "UshiroE",
+        "icon": "$(debug-restart)"
       }
     ],
     "viewsContainers": {
@@ -212,6 +261,32 @@
           "command": "ushiroe.exportSettings",
           "group": "2_transfer@3",
           "when": "view == ushiroe.panel"
+        },
+        {
+          "command": "ushiroe.randomPreset",
+          "group": "3_random@1",
+          "when": "view == ushiroe.panel"
+        },
+        {
+          "command": "ushiroe.savePreset",
+          "group": "3_random@2",
+          "when": "view == ushiroe.panel"
+        },
+        {
+          "command": "ushiroe.refreshImages",
+          "group": "4_library@1",
+          "when": "view == ushiroe.panel"
+        },
+        {
+          "command": "ushiroe.openLibrary",
+          "group": "4_library@2",
+          "when": "view == ushiroe.panel"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "ushiroe.refreshSource",
+          "when": "false"
         }
       ]
     },
@@ -294,6 +369,19 @@
                 "type": "boolean",
                 "default": false,
                 "description": "%config.source.recursive%"
+              },
+              "refresh": {
+                "type": "string",
+                "enum": [
+                  "never",
+                  "startup"
+                ],
+                "enumDescriptions": [
+                  "%config.source.refresh.never%",
+                  "%config.source.refresh.startup%"
+                ],
+                "default": "never",
+                "description": "%config.source.refresh%"
               }
             }
           }
@@ -570,6 +658,60 @@
           "scope": "application",
           "order": 8,
           "markdownDescription": "%config.transition%"
+        },
+        "ushiroe.shuffleInterval": {
+          "type": "number",
+          "default": 60,
+          "minimum": 0,
+          "scope": "application",
+          "order": 9,
+          "markdownDescription": "%config.shuffleInterval%"
+        },
+        "ushiroe.presets": {
+          "type": "array",
+          "default": [],
+          "scope": "application",
+          "order": 10,
+          "markdownDescription": "%config.presets%",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "fullscreen",
+                  "parts"
+                ]
+              },
+              "areas": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "ushiroe.randomPresetOnStartup": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "order": 11,
+          "markdownDescription": "%config.randomPresetOnStartup%"
+        },
+        "ushiroe.libraryFolder": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "order": 12,
+          "markdownDescription": "%config.libraryFolder%"
         },
         "ushiroe.patch.hideCorruptWarning": {
           "type": "boolean",

@@ -1,4 +1,5 @@
 import {
+  ALL_SOURCES,
   AREA_IDS,
   type AreaId,
   type AreaSettings,
@@ -7,14 +8,23 @@ import {
   type ImageSource,
   MODES,
   type Mode,
+  type Preset,
   SIZES,
   type Size,
   SOURCE_TYPES,
   type SourceType,
+  URL_REFRESH_MODES,
+  type UrlRefresh,
   type UshiroeSettings,
   defaultSettings,
 } from "./model";
 import { clamp, finiteNumber, isRecord, nonEmptyString, oneOf } from "./guards";
+
+export function defaultSourceName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  const last = trimmed.split(/[\\/]/).pop() ?? trimmed;
+  return last === "" ? trimmed : last;
+}
 
 export function normalizeSource(raw: unknown): ImageSource | null {
   const path = isRecord(raw) ? nonEmptyString(raw.path) : null;
@@ -30,29 +40,32 @@ export function normalizeSource(raw: unknown): ImageSource | null {
     random: raw.random === true,
     interval: Math.max(0, finiteNumber(raw.interval, DEFAULT_INTERVAL_SECONDS)),
     recursive: raw.recursive === true,
+    refresh: oneOf<UrlRefresh>(URL_REFRESH_MODES, raw.refresh, "never"),
   };
 }
 
-export function defaultSourceName(path: string): string {
-  const trimmed = path.replace(/[\\/]+$/, "");
-  const last = trimmed.split(/[\\/]/).pop() ?? trimmed;
-  return last === "" ? trimmed : last;
-}
-
-export function normalizeSources(raw: unknown): ImageSource[] {
+/** Normalizes a list and drops entries whose id was already seen. */
+function uniqueById<T extends { id: string }>(
+  raw: unknown,
+  normalize: (item: unknown) => T | null
+): T[] {
   if (!Array.isArray(raw)) {
     return [];
   }
   const seen = new Set<string>();
-  const result: ImageSource[] = [];
+  const result: T[] = [];
   for (const item of raw) {
-    const source = normalizeSource(item);
-    if (source && !seen.has(source.id)) {
-      seen.add(source.id);
-      result.push(source);
+    const value = normalize(item);
+    if (value && !seen.has(value.id)) {
+      seen.add(value.id);
+      result.push(value);
     }
   }
   return result;
+}
+
+export function normalizeSources(raw: unknown): ImageSource[] {
+  return uniqueById(raw, normalizeSource);
 }
 
 export function normalizeArea(id: AreaId, raw: unknown): AreaSettings {
@@ -75,6 +88,36 @@ export function normalizeArea(id: AreaId, raw: unknown): AreaSettings {
   };
 }
 
+/** Normalizes every area and clears references to sources that no longer exist. */
+function normalizeAreas(
+  raw: Record<string, unknown>,
+  sources: readonly ImageSource[]
+): Record<AreaId, AreaSettings> {
+  const known = new Set([ALL_SOURCES, ...sources.map((source) => source.id)]);
+  const areas = {} as Record<AreaId, AreaSettings>;
+  for (const id of AREA_IDS) {
+    const area = normalizeArea(id, raw[id]);
+    if (area.source !== null && !known.has(area.source)) {
+      area.source = null;
+    }
+    areas[id] = area;
+  }
+  return areas;
+}
+
+export function normalizePreset(raw: unknown, sources: readonly ImageSource[]): Preset | null {
+  const name = isRecord(raw) ? nonEmptyString(raw.name) : null;
+  if (!isRecord(raw) || name === null) {
+    return null;
+  }
+  return {
+    id: nonEmptyString(raw.id) ?? name,
+    name,
+    mode: oneOf<Mode>(MODES, raw.mode, "fullscreen"),
+    areas: normalizeAreas(isRecord(raw.areas) ? raw.areas : {}, sources),
+  };
+}
+
 /** Builds settings from loosely typed values such as `settings.json` or an imported file. */
 export function normalizeSettings(
   raw: Partial<Record<keyof UshiroeSettings | AreaId, unknown>>
@@ -83,19 +126,14 @@ export function normalizeSettings(
   settings.enabled = raw.enabled === true;
   settings.mode = oneOf<Mode>(MODES, raw.mode, "fullscreen");
   settings.sources = normalizeSources(raw.sources);
-  const areas = isRecord(raw.areas) ? raw.areas : raw;
-  for (const id of AREA_IDS) {
-    settings.areas[id] = normalizeArea(id, areas[id]);
-  }
+  settings.areas = normalizeAreas(isRecord(raw.areas) ? raw.areas : raw, settings.sources);
   settings.transition = clamp(finiteNumber(raw.transition, settings.transition), 0, 30);
-
-  const known = new Set(settings.sources.map((source) => source.id));
-  for (const id of AREA_IDS) {
-    const area = settings.areas[id];
-    if (area.source !== null && !known.has(area.source)) {
-      area.source = null;
-    }
-  }
+  settings.shuffleInterval = Math.max(
+    0,
+    finiteNumber(raw.shuffleInterval, settings.shuffleInterval)
+  );
+  settings.presets = uniqueById(raw.presets, (item) => normalizePreset(item, settings.sources));
+  settings.randomPresetOnStartup = raw.randomPresetOnStartup === true;
   return settings;
 }
 
@@ -103,4 +141,10 @@ export function normalizeSettings(
 export function areaToConfigValue(id: AreaId, area: AreaSettings): Record<string, unknown> {
   const { enabled, ...rest } = area;
   return id === "fullscreen" ? rest : { enabled, ...rest };
+}
+
+/** The `settings.json` shape of a source; `refresh` only matters for URLs. */
+export function sourceToConfigValue(source: ImageSource): Record<string, unknown> {
+  const { refresh, ...rest } = source;
+  return source.type === "url" ? { ...rest, refresh } : rest;
 }

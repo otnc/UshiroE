@@ -4,14 +4,10 @@ import path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { activeAreas, defaultSettings } from "../src/core/model";
+import { listFolderImages, toWorkbenchUrl } from "../src/core/files";
+import { ALL_SOURCES, activeAreas, defaultSettings } from "../src/core/model";
 import { areaToConfigValue, normalizeSettings } from "../src/core/normalize";
-import {
-  buildLiveConfig,
-  isAllowedRemoteUrl,
-  listFolderImages,
-  toWorkbenchUrl,
-} from "../src/core/resolve";
+import { buildLiveConfig } from "../src/core/resolve";
 import { buildCss, sanitizePosition } from "../src/runtime/css";
 
 describe("normalizeSettings", () => {
@@ -97,25 +93,30 @@ describe("resolve", () => {
     expect(url.startsWith("vscode-file://vscode-app/")).toBe(true);
     expect(url).not.toMatch(/[\s背]/);
   });
+});
 
-  it("only allows https remote images", () => {
-    expect(isAllowedRemoteUrl("https://example.com/a.png")).toBe(true);
-    expect(isAllowedRemoteUrl("http://example.com/a.png")).toBe(false);
-    expect(isAllowedRemoteUrl("javascript:alert(1)")).toBe(false);
-  });
+describe("buildLiveConfig", () => {
+  const copies: Record<string, string[]> = {
+    folder: ["/lib/folder/a.png", "/lib/folder/b.png"],
+    file: ["/lib/file/c.png"],
+    missing: [],
+  };
+  const lookup = (source: { id: string }) => copies[source.id] ?? [];
+  const sources = [
+    { id: "folder", type: "folder", path: "/pics", interval: 5, random: true },
+    { id: "file", type: "file", path: "/c.png" },
+    { id: "missing", type: "file", path: "/missing.png" },
+  ];
 
-  it("builds the live config only for active areas with images", async () => {
+  it("includes only active areas that have images", () => {
     const settings = normalizeSettings({
       enabled: true,
       mode: "parts",
-      sources: [
-        { id: "folder", type: "folder", path: dir, interval: 5, random: true },
-        { id: "missing", type: "file", path: path.join(dir, "missing.png") },
-      ],
+      sources,
       editor: { enabled: true, source: "folder", opacity: 0.3 },
       sidebar: { enabled: true, source: "missing" },
     });
-    const live = await buildLiveConfig(settings, 4);
+    const live = buildLiveConfig(settings, 4, lookup);
     expect(live.enabled).toBe(true);
     expect(live.cycle).toBe(4);
     expect(live.areas).toHaveLength(1);
@@ -125,7 +126,19 @@ describe("resolve", () => {
       random: true,
       interval: 5000,
     });
-    expect(live.areas[0].images).toHaveLength(2);
+    expect(live.areas[0].images).toEqual(copies.folder.map(toWorkbenchUrl));
+  });
+
+  it("pools every source in random order for the all-images choice", () => {
+    const settings = normalizeSettings({
+      enabled: true,
+      sources,
+      shuffleInterval: 30,
+      fullscreen: { source: ALL_SOURCES },
+    });
+    const [area] = buildLiveConfig(settings, 0, lookup).areas;
+    expect(area).toMatchObject({ id: "fullscreen", random: true, interval: 30000 });
+    expect(area.images).toHaveLength(3);
   });
 });
 
