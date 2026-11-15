@@ -33,8 +33,13 @@ UshiroE (後ろ絵) は、VS Code の背景に画像を表示する拡張機能�
 ## BackImage からの移行
 
 1. UshiroE をインストールします。BackImage が入っていれば、設定をインポートするか確認されます。コマンドパレットの **UshiroE: BackImage から設定をインポート** からもいつでも実行できます。
-2. インポートが終わると、BackImage をアンインストールするか確認されます。2 つの拡張機能は同じファイルにパッチを当てて競合するので、アンインストールしてください。このとき、BackImage が VS Code のインストールフォルダに残したパッチと `.backup` ファイルも UshiroE が削除します。
-3. VS Code を再起動します。
+2. インポートが終わると、BackImage をアンインストールするか確認されます。2 つの拡張機能は同じファイルにパッチを当てて競合するので、アンインストールしてください。
+3. VS Code を再起動します。それまでは BackImage が動き続けるので、UshiroE は再起動前には何も変更しません。再起動後に、BackImage が VS Code のインストールフォルダに残した `.backup` ファイルを削除するか確認してから、パッチを適用します。
+
+BackImage が動いている間、UshiroE は VS Code のファイルを一切書き換えません。そのときの動きは `ushiroe.backImage.priority` で決まります。
+
+- `ushiroe` (既定): **BackImage をアンインストール**、**BackImage を無効化**、**BackImage に任せる** のボタン付きで警告を出します。
+- `backImage`: BackImage が背景を管理し、UshiroE は自動修復も含めて何もしません。BackImage がいなくなると、UshiroE がまた管理します。
 
 画像リストは画像ソースになり、選んでいた画像、パーツの設定、ランダム表示、切り替え間隔も引き継がれます。BackImage のフルスクリーンの透明度は UI の不透明度を表していましたが、UshiroE では画像の見えやすさを表すので、値を変換します (BackImage の 0.85 は 0.15 になります)。BackImage で背景の種類を選んでいなかった場合は、BackImage と同じく背景はオフのままです。インポートした画像も、ほかの画像と同じく画像フォルダにコピーされます。
 
@@ -66,6 +71,7 @@ UshiroE は元のファイルを直接表示しません。ファイル、フォ
 | `ushiroe.presets` | 保存したレイアウトです。 |
 | `ushiroe.randomPresetOnStartup` | VS Code を起動するたびにランダムなプリセットを適用します。 |
 | `ushiroe.libraryFolder` | 画像のコピーを置くフォルダです。空にするとピクチャフォルダ内の `UshiroE` を使います。 |
+| `ushiroe.backImage.priority` | BackImage が動いているときに背景を管理する側です。`ushiroe` (既定) または `backImage` を指定します。 |
 | `ushiroe.patch.hideCorruptWarning` | VS Code のチェックサムを更新し、「インストールが壊れている」という警告を出さないようにします。 |
 | `ushiroe.patch.autoRepair` | VS Code の更新後にパッチを自動で再適用します。 |
 
@@ -79,13 +85,37 @@ VS Code が書き込み権限のないフォルダにインストールされて
 
 ## アンインストール
 
-アンインストールする前に **UshiroE: VS Code からパッチを削除** を実行し、VS Code を再起動してください。忘れた場合でも、アンインストール後に VS Code を次に起動したときに UshiroE のアンインストール処理がパッチを削除します。
+アンインストールする前に **UshiroE: VS Code からパッチを削除** を実行し、VS Code を再起動してください。忘れた場合でも、アンインストール後に VS Code を次に起動したときに UshiroE のアンインストール処理がパッチを削除します。UshiroE をもう一度インストールしたときにパッチが残っていれば、ほかの処理より先に、削除するかどうかを確認します。
 
 ## 注意事項
 
 - VS Code のタイトルバーに「\[サポート対象外]」と表示されたり、インストールが壊れているという通知が出たりすることがあります。`ushiroe.patch.hideCorruptWarning` (既定でオン) は VS Code のチェックサムを更新してこれを防ぎます。
 - UshiroE はデスクトップ版の VS Code でのみ動作します。リモート (SSH、WSL、Dev Containers) でもローカルのマシンで動くので、画像はローカルのマシンに置いてください。
-- 問題が起きたときは **UshiroE: VS Code からパッチを削除** を実行してください。VS Code を再インストールしても完全に元に戻ります。
+- 問題が起きたときは [トラブルシューティング](#トラブルシューティング) を見てください。
+
+## トラブルシューティング
+
+UshiroE が VS Code のファイルを書き換えるのは、ほかのパッチを当てる拡張機能が動いていないときだけです。すべてのウィンドウで共有するロックを取り、アトミックに書き込んで内容を確認します。書き換えるのは、VS Code 本来のファイルか UshiroE 自身が以前に当てたパッチだと確認できたファイルだけです。消えたパッチの自動修復は VS Code のバージョンごとに 1 回までで、VS Code を勝手に再読み込みしたり再起動したりはしません。
+
+**「インストールが壊れている可能性があります」と出る、またはウィンドウが再読み込みを繰り返す**
+
+1. BackImage など、VS Code にパッチを当てるほかの拡張機能をアンインストールします: `code --uninstall-extension robotofficial.backimage`
+2. **UshiroE: VS Code の Workbench を復元** を実行します。UshiroE が最初にパッチを当てる前に保存した VS Code のファイルと、VS Code 本来のチェックサムを書き戻します。
+3. VS Code を再起動します。
+
+**VS Code が起動しない**
+
+Node.js で UshiroE の復旧スクリプトを実行します。引数には VS Code のインストールフォルダ (Windows では通常 `%LOCALAPPDATA%\Programs\Microsoft VS Code`) を渡します。
+
+```sh
+node ~/.vscode/extensions/otoneko1102.ushiroe-<version>/dist/uninstall.js "<VS Code のインストールフォルダ>"
+```
+
+ハッシュが一致すれば保存したコピーを書き戻し、一致しなければ UshiroE のパッチを取り除きます。ほかの何かがファイルを変更していた場合は、VS Code の再インストールを案内します。すべてのユーザー向けにインストールした VS Code では、管理者として実行してください。最後の手段は VS Code の再インストールで、これで必ず元に戻ります。
+
+## 既知の問題
+
+**GitHub などのサインインが消えた。** もう一度サインインしてください。VS Code 1.146 以降、GitHub のトークンは OS のアカウント内のすべての VS Code で共有される `~/.vscode-shared/sharedStorage/state.vscdb` に保存されています。別の `--user-data-dir` を使う VS Code (ポータブル版やテスト用のインスタンスなど) を起動すると、VS Code は復号できない秘密情報を削除するため、このトークンが消えます。サインインの問題を直すために `~/.vscode-shared` を削除しないでください。ワークスペースの信頼や最近開いたフォルダもここに保存されています。UshiroE はこのフォルダを読み書きしません。詳しくは [調査結果](docs/investigations/github-signout.md) を見てください。
 
 ## 開発
 
@@ -101,6 +131,9 @@ VS Code が書き込み権限のないフォルダにインストールされて
 | `npm run changelog:preview` | 次のリリースで追加される変更履歴を表示します。 |
 
 リリースは `release` ワークフローで行います。`CHANGELOG.md` は git-cliff が Conventional Commits から生成するので、PR のタイトルはその形式 (`feat: ...`、`fix: ...`) にしてください。PR のタイトルがそのまま squash コミットのメッセージになります。
+
+> [!WARNING]
+> UshiroE を試すために、自分の OS アカウントで別の `--user-data-dir` を使う VS Code を起動しないでください。普段の VS Code と `~/.vscode-shared` を共有するため、GitHub のサインインが消えます ([既知の問題](#既知の問題) を参照)。メモリ上のストレージで動く `npm run test:integration` を使うか、別の OS アカウントや VM で試してください。
 
 ## ライセンス
 

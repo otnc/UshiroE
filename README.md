@@ -33,8 +33,13 @@ After that, changes in the view or in `settings.json` show up without restarting
 ## Moving from BackImage
 
 1. Install UshiroE. If BackImage is installed, UshiroE offers to import its settings. You can also run **UshiroE: Import Settings from BackImage** from the Command Palette at any time.
-2. After the import, UshiroE offers to uninstall BackImage. Accept it, because both extensions patch the same file and would conflict. UshiroE also removes BackImage's patch and the `.backup` files it left in VS Code's installation folder.
-3. Restart VS Code.
+2. After the import, UshiroE offers to uninstall BackImage. Accept it, because both extensions patch the same file and would conflict.
+3. Restart VS Code. BackImage keeps running until then, so UshiroE changes nothing before the restart. After it, UshiroE asks to delete the `.backup` files BackImage left in VS Code's installation folder and applies its patch.
+
+While BackImage is active, UshiroE never writes VS Code's files. `ushiroe.backImage.priority` decides what happens then:
+
+- `ushiroe` (default): UshiroE shows a warning with **Uninstall BackImage**, **Disable BackImage** and **Let BackImage Take Over**.
+- `backImage`: BackImage manages the background and UshiroE stays out of the way, including its automatic repair. Once BackImage is gone, UshiroE takes over again.
 
 Image lists become image sources, and the selected images, part settings, random order and intervals carry over. BackImage's full-screen opacity described how opaque the UI was, while UshiroE's describes how visible the image is, so that value is converted (BackImage's 0.85 becomes 0.15). Like BackImage, backgrounds stay off when no background type was selected in BackImage. Imported images are copied into the image folder like any other image.
 
@@ -66,6 +71,7 @@ UshiroE never shows your original files directly. Every image, whether it comes 
 | `ushiroe.presets` | Saved layouts. |
 | `ushiroe.randomPresetOnStartup` | Apply a random preset each time VS Code starts. |
 | `ushiroe.libraryFolder` | Folder for the image copies; empty means `UshiroE` in your Pictures folder. |
+| `ushiroe.backImage.priority` | Who manages the background while BackImage is active: `ushiroe` (default) or `backImage`. |
 | `ushiroe.patch.hideCorruptWarning` | Update VS Code's checksum so it does not report the installation as corrupt. |
 | `ushiroe.patch.autoRepair` | Re-apply the patch automatically after VS Code updates. |
 
@@ -79,13 +85,37 @@ If VS Code is installed in a folder you cannot write to, UshiroE asks for admini
 
 ## Uninstalling
 
-Run **UshiroE: Remove Patch from VS Code** before uninstalling, then restart VS Code. If you forget, UshiroE's uninstall hook removes the patch the next time VS Code starts after the uninstall.
+Run **UshiroE: Remove Patch from VS Code** before uninstalling, then restart VS Code. If you forget, UshiroE's uninstall hook removes the patch the next time VS Code starts after the uninstall. If the patch is still there when you install UshiroE again, UshiroE asks whether to remove it before doing anything else.
 
 ## Notes
 
 - VS Code may show "\[Unsupported]" in the title bar or a notice that the installation is corrupt. `ushiroe.patch.hideCorruptWarning` (on by default) updates VS Code's checksum to prevent this.
 - UshiroE only works in desktop VS Code. In remote sessions (SSH, WSL, Dev Containers) it runs on your local machine, and images must be on your local machine.
-- If something goes wrong, run **UshiroE: Remove Patch from VS Code**. Reinstalling VS Code also restores it completely.
+- If something goes wrong, see [Troubleshooting](#troubleshooting).
+
+## Troubleshooting
+
+UshiroE only writes VS Code's files when no other patcher is active, under a lock shared by all windows, with atomic and verified writes, and only on files it recognizes as VS Code's own or its own earlier patch. It re-applies a lost patch at most once per VS Code version and never reloads or restarts VS Code by itself.
+
+**"Your Code installation appears to be corrupt", or the window keeps reloading**
+
+1. Uninstall BackImage or any other extension that patches VS Code: `code --uninstall-extension robotofficial.backimage`.
+2. Run **UshiroE: Restore VS Code Workbench**. It writes back the copy of VS Code's file that UshiroE saved before its first patch, and VS Code's own checksum.
+3. Restart VS Code.
+
+**VS Code does not start**
+
+Run UshiroE's recovery script with Node.js, passing VS Code's install folder (on Windows usually `%LOCALAPPDATA%\Programs\Microsoft VS Code`):
+
+```sh
+node ~/.vscode/extensions/otoneko1102.ushiroe-<version>/dist/uninstall.js "<VS Code install folder>"
+```
+
+It restores the saved copy when its hash matches, otherwise removes UshiroE's patch, and tells you to reinstall VS Code when the file was changed by something else. Run it as administrator if VS Code is installed for all users. Reinstalling VS Code is the last resort and always works.
+
+## Known issues
+
+**GitHub or another sign-in is gone.** Sign in again. Since VS Code 1.146, the GitHub token is stored in `~/.vscode-shared/sharedStorage/state.vscdb`, which every VS Code on your OS account shares. Starting a second VS Code with its own `--user-data-dir` (for example a portable copy or a test instance) deletes that token, because VS Code removes secrets it cannot decrypt. Do not delete `~/.vscode-shared` to fix sign-in problems; it also holds Workspace Trust and recent folders. UshiroE never reads or writes this folder. See [the investigation](docs/investigations/github-signout.md).
 
 ## Development
 
@@ -101,6 +131,9 @@ Run **UshiroE: Remove Patch from VS Code** before uninstalling, then restart VS 
 | `npm run changelog:preview` | Shows the changelog entry the next release will get. |
 
 Releases are made with the `release` workflow. `CHANGELOG.md` is generated from Conventional Commits by git-cliff, so PR titles must follow that format (`feat: ...`, `fix: ...`); they become the squash commit messages.
+
+> [!WARNING]
+> Never start a second VS Code with its own `--user-data-dir` on your own OS account to try UshiroE out. It shares `~/.vscode-shared` with your normal VS Code and deletes your GitHub sign-in (see [Known issues](#known-issues)). Use `npm run test:integration`, which runs with in-memory storage, or test on a separate OS account or a VM.
 
 ## License
 
