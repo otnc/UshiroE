@@ -201,11 +201,12 @@ describe("buildCss", () => {
     expect(buildCss({ v: 1, enabled: false, transition: 1, areas: [area], cycle: 0 })).toBe("");
   });
 
-  it("targets the part with a pseudo element that ignores the mouse", () => {
+  it("gives the part overlay two independently fitted layers that ignore the mouse", () => {
     const css = buildCss({ v: 1, enabled: true, transition: 1, areas: [area], cycle: 0 });
-    expect(css).toContain("[id='workbench.parts.editor']::before");
+    expect(css).toContain('[data-ushiroe-background="editor"] > div');
     expect(css).toContain("pointer-events: none");
-    expect(css).toContain("var(--ushiroe-editor-image)");
+    expect(css).toContain("background-size: cover");
+    expect(css).not.toContain("transition: background-image");
   });
 
   it("keeps the full-window layer below the title bar, also when blurred", () => {

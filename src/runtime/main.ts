@@ -1,5 +1,7 @@
 import { LIVE_CONFIG_VERSION, type LiveArea, type LiveConfig } from "../core/live";
-import { TITLEBAR_HEIGHT_VARIABLE, buildCss, cssUrl, cssVariable } from "./css";
+import type { AreaId } from "../core/model";
+import { createBackground } from "./background";
+import { TITLEBAR_HEIGHT_VARIABLE, buildCss } from "./css";
 
 export interface RuntimeBoot {
   /** `vscode-file:` URL of the live config JSON written by the extension. */
@@ -12,10 +14,17 @@ interface AreaState {
   area: LiveArea;
   index: number;
   timer: ReturnType<typeof setInterval> | undefined;
+  background: ReturnType<typeof createBackground>;
 }
 
 const STARTED_FLAG = "__ushiroeStarted";
 const INDEX_STORAGE_PREFIX = "ushiroe.index.";
+const PART_IDS: Record<Exclude<AreaId, "fullscreen">, string> = {
+  editor: "workbench.parts.editor",
+  sidebar: "workbench.parts.sidebar",
+  auxiliaryBar: "workbench.parts.auxiliarybar",
+  panel: "workbench.parts.panel",
+};
 
 function sameExceptCycle(a: LiveConfig, b: LiveConfig): boolean {
   return JSON.stringify({ ...a, cycle: 0 }) === JSON.stringify({ ...b, cycle: 0 });
@@ -89,17 +98,17 @@ export function start(boot: RuntimeBoot): void {
   style.id = "ushiroe-style";
   const root = document.documentElement;
   trackTitlebar(root);
-  let states: AreaState[] = [];
+  const states = new Map<AreaId, AreaState>();
   let current: LiveConfig | undefined;
   let lastText = "";
   let polling = false;
   /** Playlists that already picked their first image in this window. */
   const startedPlaylists = new Set<string>();
 
-  function showImage(state: AreaState, index: number): void {
+  function showImage(state: AreaState, index: number, transition: number): void {
     state.index = index;
-    root.style.setProperty(cssVariable(state.area.id), cssUrl(state.area.images[index]));
     storeIndex(state.area, index);
+    void state.background.show(state.area.images[index], transition);
   }
 
   function advance(state: AreaState): void {
@@ -107,10 +116,7 @@ export function start(boot: RuntimeBoot): void {
     if (next === state.index) {
       return;
     }
-    // Switch only after the image is decoded so the cross-fade never shows an empty frame.
-    const preload = new Image();
-    preload.onload = preload.onerror = () => showImage(state, next);
-    preload.src = state.area.images[next];
+    showImage(state, next, current?.transition ?? 0);
   }
 
   function startTimer(state: AreaState): void {
@@ -140,32 +146,49 @@ export function start(boot: RuntimeBoot): void {
     return area.changeOnStartupOnly && firstInThisWindow ? (stored + 1) % count : stored;
   }
 
-  function apply(config: LiveConfig): void {
-    const previous = new Map(states.map((state) => [state.area.id, state]));
-    for (const state of states) {
-      clearInterval(state.timer);
-      root.style.removeProperty(cssVariable(state.area.id));
+  function mountBackgrounds(): void {
+    for (const [id, { background }] of states) {
+      if (!background.element.isConnected) {
+        const parent = id === "fullscreen" ? document.body : document.getElementById(PART_IDS[id]);
+        parent?.append(background.element);
+      }
     }
-    states = [];
+  }
+
+  function apply(config: LiveConfig): void {
+    const areas = config.enabled ? config.areas.filter((area) => area.images.length > 0) : [];
     style.textContent = buildCss(config);
     if (!style.isConnected) {
       (document.head ?? root).appendChild(style);
     }
-    if (!config.enabled) {
-      return;
-    }
-    for (const area of config.areas) {
-      if (area.images.length === 0) {
-        continue;
+    const activeIds = new Set(areas.map((area) => area.id));
+    for (const [id, state] of states) {
+      if (!activeIds.has(id)) {
+        clearInterval(state.timer);
+        state.background.dispose();
+        states.delete(id);
       }
-      const state: AreaState = { area, index: 0, timer: undefined };
-      showImage(state, firstIndex(area, previous.get(area.id)));
-      startTimer(state);
-      states.push(state);
     }
+    for (const area of areas) {
+      const previous = states.get(area.id);
+      const index = firstIndex(area, previous);
+      const state: AreaState = previous ?? {
+        area,
+        index,
+        timer: undefined,
+        background: createBackground(area.id),
+      };
+      state.area = area;
+      states.set(area.id, state);
+      showImage(state, index, config.transition);
+      startTimer(state);
+    }
+    mountBackgrounds();
   }
 
   async function poll(): Promise<void> {
+    // The workbench can create or replace a part without changing UshiroE's settings.
+    mountBackgrounds();
     if (polling) {
       return;
     }
@@ -185,7 +208,7 @@ export function start(boot: RuntimeBoot): void {
         return;
       }
       if (current && sameExceptCycle(current, config)) {
-        for (const state of states) {
+        for (const state of states.values()) {
           advance(state);
           startTimer(state);
         }
