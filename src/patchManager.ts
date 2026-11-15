@@ -15,7 +15,7 @@ import { type RepairRecord, decideStartupRepair, resetRepairs } from "./core/rep
 import { BACKIMAGE_EXTENSION_ID } from "./migration/backimage";
 import type { PatchStatus, Patcher } from "./patcher";
 import { readPatchOptions, readSettings, setBackImagePriority, setEnabled } from "./settings";
-import { promptRestart } from "./ui/prompts";
+import { outdatedPatchMessage, promptRestart } from "./ui/prompts";
 import { CancelledError } from "./workbench/fileio";
 import { IntegrityError } from "./workbench/integrity";
 import { LockedError } from "./workbench/lock";
@@ -171,6 +171,17 @@ export class PatchManager implements Disposable {
     return true;
   }
 
+  private offerManualRepair(message: string): void {
+    const repair = l10n.t("Repair Patch");
+    void Promise.resolve(window.showWarningMessage(message, repair))
+      .then((choice) => {
+        if (choice === repair && readSettings().enabled) {
+          return this.ensure("manual");
+        }
+      })
+      .catch((error: unknown) => this.reportError(error));
+  }
+
   /** Decides whether a startup repair may run, so a lost patch is re-applied at most once. */
   private async allowStartupRepair(): Promise<boolean> {
     const commit = this.current?.commit ?? "unknown";
@@ -185,17 +196,15 @@ export class PatchManager implements Disposable {
       return decision.action === "repair";
     }
     this.lastBlocked = "repairLoop";
-    if (decision.warn) {
-      // Not awaited: an unanswered notification must not hold up startup.
-      const repair = l10n.t("Repair");
-      void window
-        .showWarningMessage(
-          l10n.t(
-            "The UshiroE patch disappeared again after repair. Another extension may be overwriting the workbench file, so UshiroE stopped repairing the patch automatically."
-          ),
-          repair
+    if (this.current?.state === "outdated") {
+      // A warning about a prior lost patch must not hide the prompt for a newer runtime.
+      this.offerManualRepair(outdatedPatchMessage());
+    } else if (decision.warn) {
+      this.offerManualRepair(
+        l10n.t(
+          "The UshiroE patch disappeared again after repair. Another extension may be overwriting the workbench file, so UshiroE stopped repairing the patch automatically."
         )
-        .then((choice) => (choice === repair ? this.ensure("manual") : undefined));
+      );
     }
     return false;
   }
@@ -213,14 +222,11 @@ export class PatchManager implements Disposable {
     const options = readPatchOptions();
     if (reason === "startup") {
       if (!options.autoRepair) {
-        const repair = l10n.t("Repair");
-        const choice = await window.showWarningMessage(
-          l10n.t("UshiroE's patch is missing or outdated, probably because VS Code was updated."),
-          repair
+        this.offerManualRepair(
+          this.current?.state === "outdated"
+            ? outdatedPatchMessage()
+            : l10n.t("UshiroE's patch needs repair to show backgrounds.")
         );
-        if (choice === repair) {
-          await this.ensure("manual");
-        }
         return;
       }
       if (!(await this.allowStartupRepair())) {
@@ -249,9 +255,7 @@ export class PatchManager implements Disposable {
       if (await this.patcher.apply(options.hideCorruptWarning)) {
         await this.markRestartNeeded(
           reason === "startup" && patchedBefore
-            ? l10n.t(
-                "UshiroE reapplied its patch after the VS Code update. Restart VS Code to see the background."
-              )
+            ? l10n.t("UshiroE repaired its patch. Quit and reopen VS Code to apply the changes.")
             : l10n.t(
                 "The UshiroE patch is in place. Quit and reopen VS Code to see the background."
               )

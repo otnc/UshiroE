@@ -103,6 +103,24 @@ describe("panel webview", () => {
     expect(values).toEqual(["", "*", "preset:p1", "src"]);
   });
 
+  it("offers patch repair for outdated backgrounds until a restart is pending", () => {
+    const current = state();
+    current.settings.enabled = true;
+    current.status.patch = "outdated";
+    window.dispatchEvent(new MessageEvent("message", { data: current }));
+    const repair = app().querySelector<HTMLButtonElement>(
+      '.notice.warn button[data-action="cmd:ushiroe.repairPatch"]'
+    );
+    expect(repair).not.toBeNull();
+    repair?.click();
+    expect(posted).toContainEqual({ type: "command", command: "ushiroe.repairPatch" });
+
+    current.status.restartPending = true;
+    window.dispatchEvent(new MessageEvent("message", { data: current }));
+    expect(app().querySelector(".notice.warn")).toBeNull();
+    expect(app().querySelector(".notice.info")?.textContent).toContain("restartPending");
+  });
+
   it("moves a preset image with one click, but not past the ends", () => {
     const moves = [...app().querySelectorAll<HTMLButtonElement>("[data-message]")].filter(
       (button) => button.dataset.message?.includes('"movePresetImage"')

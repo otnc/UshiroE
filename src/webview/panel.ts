@@ -163,6 +163,13 @@ function renderStatus(current: State): string {
   }[status.patch];
   const patchIcon =
     status.patch === "applied" ? "pass" : status.patch === "unknown" ? "question" : "warning";
+  const needsRepair =
+    settings.enabled &&
+    status.patch === "outdated" &&
+    status.ownership.kind === "ushiroe" &&
+    !status.problem &&
+    !status.waitingForRestart &&
+    !status.restartPending;
   const notices: string[] = [];
   if (status.restartPending) {
     notices.push(
@@ -170,6 +177,9 @@ function renderStatus(current: State): string {
     );
   }
   notices.push(...ownershipNotices(status));
+  if (needsRepair) {
+    notices.push(notice("warn", t.patchNeedsRepair, [button(t.repair, "cmd:ushiroe.repairPatch")]));
+  }
   return `<section class="status">
   <div class="status-main">
     <span class="dot ${settings.enabled ? "on" : "off"}"></span>
@@ -181,7 +191,7 @@ function renderStatus(current: State): string {
   <div class="patch ${status.patch}">
     ${icon(patchIcon)}<span>${escapeHtml(patchText)}</span>
     <span class="spacer"></span>
-    ${button("", "cmd:ushiroe.repairPatch", { icon: "tools", title: t.repair })}
+    ${needsRepair ? "" : button("", "cmd:ushiroe.repairPatch", { icon: "tools", title: t.repair })}
     ${button("", "cmd:ushiroe.removePatch", { icon: "discard", title: t.removePatch })}
   </div>
   ${notices.join("")}

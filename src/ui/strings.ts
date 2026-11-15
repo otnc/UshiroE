@@ -1,5 +1,7 @@
 import { l10n } from "vscode";
 
+import { outdatedPatchMessage } from "./prompts";
+
 /** Every string the panel webview shows, translated by the extension host. */
 export const panelStrings = () => {
   return {
@@ -10,6 +12,7 @@ export const panelStrings = () => {
     nextImage: l10n.t("Next Image"),
     patchApplied: l10n.t("Patch installed"),
     patchOutdated: l10n.t("Patch outdated"),
+    patchNeedsRepair: outdatedPatchMessage(),
     patchMissing: l10n.t("Patch not installed"),
     patchUnknown: l10n.t("Patch status unknown"),
     restartPending: l10n.t("Quit and reopen VS Code to apply the change."),

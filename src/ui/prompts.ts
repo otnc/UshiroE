@@ -2,6 +2,9 @@ import { commands, l10n, window } from "vscode";
 
 import { isPristine } from "../settings";
 
+export const outdatedPatchMessage = () =>
+  l10n.t("UshiroE's patch is out of date. Repair it to apply the update.");
+
 /**
  * Asks to restart VS Code. A window reload is not enough after the workbench script changes, because the renderer keeps the old script cached until VS Code quits.
  */
