@@ -1,1 +1,7 @@
+.claude/
 node_modules/
+dist/
+*.vsix
+.vscode-test/
+local.kiritanconfig
+out/

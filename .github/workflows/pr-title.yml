@@ -1,0 +1,32 @@
+name: pr-title
+
+# Squash merges use the PR title as the commit message (see the repository's merge settings), and
+# git-cliff builds CHANGELOG.md from those commits, so the title has to be a Conventional Commit.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            revert
+            docs
+            test
+            style
+            ci
+            build
+            chore
+          requireScope: false

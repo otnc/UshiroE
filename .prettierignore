@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+*.vsix
+*.md
+.vscode-test/
+package-lock.json
+
+# Third-party skill sources installed by the skills CLI, not our code style to enforce
+.agents/skills/
