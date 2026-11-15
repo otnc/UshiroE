@@ -95,6 +95,8 @@ export function start(boot: RuntimeBoot): void {
   let current: LiveConfig | undefined;
   let lastText = "";
   let polling = false;
+  /** Playlists that already picked their first image in this window. */
+  const startedPlaylists = new Set<string>();
 
   function showImage(state: AreaState, index: number): void {
     state.index = index;
@@ -122,7 +124,26 @@ export function start(boot: RuntimeBoot): void {
     }
   }
 
+  /** The image each area should start with after a config change or at window start. */
+  function firstIndex(area: LiveArea, previous: AreaState | undefined): number {
+    const count = area.images.length;
+    // Keep showing the same image when only other settings, such as the opacity, changed.
+    if (previous && previous.area.images.join("\n") === area.images.join("\n")) {
+      return previous.index;
+    }
+    const key = `${area.id}\n${area.images.join("\n")}`;
+    const firstInThisWindow = !startedPlaylists.has(key);
+    startedPlaylists.add(key);
+    if (area.random && count > 1) {
+      return Math.floor(Math.random() * count);
+    }
+    const stored = readStoredIndex(area);
+    // "Change only at startup" moves on once each time a window starts.
+    return area.changeOnStartupOnly && firstInThisWindow ? (stored + 1) % count : stored;
+  }
+
   function apply(config: LiveConfig): void {
+    const previous = new Map(states.map((state) => [state.area.id, state]));
     for (const state of states) {
       clearInterval(state.timer);
       root.style.removeProperty(cssVariable(state.area.id));
@@ -140,11 +161,7 @@ export function start(boot: RuntimeBoot): void {
         continue;
       }
       const state: AreaState = { area, index: 0, timer: undefined };
-      const first =
-        area.random && area.images.length > 1
-          ? Math.floor(Math.random() * area.images.length)
-          : readStoredIndex(area);
-      showImage(state, first);
+      showImage(state, firstIndex(area, previous.get(area.id)));
       startTimer(state);
       states.push(state);
     }

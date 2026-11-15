@@ -81,7 +81,7 @@ describe("UshiroE in VS Code", function () {
       vscode.ConfigurationTarget.Global
     );
     const copies = await waitFor(() => {
-      const images = api.library.lookup({
+      const images = api.library.resolver.imagesOf({
         id: "it",
         name: "",
         type: "folder",
@@ -91,6 +91,7 @@ describe("UshiroE in VS Code", function () {
         interval: 10,
         recursive: false,
         refresh: "never",
+        changeOnStartupOnly: false,
       });
       return images.length > 0 ? images : undefined;
     });

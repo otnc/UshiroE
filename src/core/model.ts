@@ -25,21 +25,31 @@ export type UrlRefresh = (typeof URL_REFRESH_MODES)[number];
 /** File extensions that VS Code's `vscode-file:` protocol serves from any directory. */
 export const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp"] as const;
 
-/** Area `source` value that pools the images of every source in random order. */
+/** Area `source` value that shows the images of every source, in the source list's order. */
 export const ALL_SOURCES = "*";
+
+/** Area `source` values that point at a preset start with this. */
+export const PRESET_PREFIX = "preset:";
 
 export const DEFAULT_INTERVAL_SECONDS = 10;
 
-export interface ImageSource {
+/** How a set of images takes turns: shared by sources, presets and All images. */
+export interface Rotation {
+  /** Pick the next image at random instead of in order. */
+  random: boolean;
+  /** Seconds between images; 0 keeps showing the same image. */
+  interval: number;
+  /** Change the image only when VS Code starts, never while it runs. */
+  changeOnStartupOnly: boolean;
+}
+
+export interface ImageSource extends Rotation {
   id: string;
   name: string;
   type: SourceType;
-  /** File path, folder path, or URL for `url` sources. */
+  /** Where the images were imported from, or the URL for `url` sources. */
   path: string;
   description: string;
-  random: boolean;
-  /** Seconds between image changes for folder sources; 0 keeps the first image. */
-  interval: number;
   recursive: boolean;
   /** Only used by `url` sources. */
   refresh: UrlRefresh;
@@ -48,7 +58,7 @@ export interface ImageSource {
 export interface AreaSettings {
   /** Ignored for the fullscreen area, which is controlled by the mode instead. */
   enabled: boolean;
-  /** A source id, {@link ALL_SOURCES}, or null for no image. */
+  /** A source id, {@link ALL_SOURCES}, {@link PRESET_PREFIX} + a preset id, or null. */
   source: string | null;
   /** How strongly the image shows through, from 0 (invisible) to 1 (opaque). */
   opacity: number;
@@ -58,12 +68,14 @@ export interface AreaSettings {
   blur: number;
 }
 
-/** A named layout: the mode and every area, without the image sources themselves. */
-export interface Preset {
+/**
+ * A named, ordered list of images picked from the sources. Each image is referenced as
+ * `<source id>/<file name>` in the image folder.
+ */
+export interface Preset extends Rotation {
   id: string;
   name: string;
-  mode: Mode;
-  areas: Record<AreaId, AreaSettings>;
+  images: string[];
 }
 
 export interface UshiroeSettings {
@@ -73,11 +85,9 @@ export interface UshiroeSettings {
   areas: Record<AreaId, AreaSettings>;
   /** Seconds the cross-fade between rotating images takes. */
   transition: number;
-  /** Seconds between images when an area shows {@link ALL_SOURCES}; 0 changes only at startup. */
-  shuffleInterval: number;
+  /** How images take turns when an area shows {@link ALL_SOURCES}. */
+  allImages: Rotation;
   presets: Preset[];
-  /** Apply a random preset each time VS Code starts. */
-  randomPresetOnStartup: boolean;
 }
 
 const BASE_AREA: Readonly<AreaSettings> = {
@@ -111,9 +121,8 @@ export function defaultSettings(): UshiroeSettings {
     sources: [],
     areas: defaultAreas(),
     transition: 1,
-    shuffleInterval: 0,
+    allImages: { random: true, interval: 60, changeOnStartupOnly: false },
     presets: [],
-    randomPresetOnStartup: false,
   };
 }
 

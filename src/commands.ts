@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { Uri, l10n, window } from "vscode";
 
 import { isDownloadableUrl } from "./core/downloads";
+import { hasImagesInSubfolders } from "./core/files";
 import {
   DEFAULT_INTERVAL_SECONDS,
   IMAGE_EXTENSIONS,
@@ -37,6 +38,7 @@ function newSource(type: SourceType, path: string, refresh: UrlRefresh = "never"
     random: false,
     interval: DEFAULT_INTERVAL_SECONDS,
     recursive: false,
+    changeOnStartupOnly: false,
     refresh,
   };
 }
@@ -69,7 +71,25 @@ export async function addImageFolder(): Promise<void> {
     canSelectMany: true,
     openLabel: l10n.t("Add Folder"),
   });
-  await addAndShow((folders ?? []).map((folder) => newSource("folder", folder.fsPath)));
+  if (!folders?.length) {
+    return;
+  }
+  // The folder is copied once, so subfolders can only be included now.
+  let recursive = false;
+  const nested = await Promise.all(
+    folders.map((folder) => hasImagesInSubfolders(folder.fsPath).catch(() => false))
+  );
+  if (nested.some(Boolean)) {
+    const include = l10n.t("Include Subfolders");
+    const choice = await window.showQuickPick([include, l10n.t("Only This Folder")], {
+      placeHolder: l10n.t("The folder has images in subfolders too. Copy them as well?"),
+    });
+    if (choice === undefined) {
+      return;
+    }
+    recursive = choice === include;
+  }
+  await addAndShow(folders.map((folder) => ({ ...newSource("folder", folder.fsPath), recursive })));
 }
 
 export async function addImageUrl(library: LibraryManager): Promise<void> {
@@ -107,7 +127,7 @@ export async function addImageUrl(library: LibraryManager): Promise<void> {
   const source = newSource("url", url, refresh.value);
   // Downloading before adding reports a bad URL right away instead of adding a broken source.
   await library.sync([source], { refreshUrls: () => true, visible: true });
-  if (library.lookup(source).length > 0) {
+  if (library.resolver.imagesOf(source).length > 0) {
     await addAndShow([source]);
   }
 }

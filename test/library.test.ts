@@ -23,6 +23,7 @@ function source(patch: Partial<ImageSource>): ImageSource {
     interval: 10,
     recursive: false,
     refresh: "never",
+    changeOnStartupOnly: false,
     ...patch,
   };
 }
@@ -109,6 +110,41 @@ describe("ImageLibrary", () => {
     await expect(
       new ImageLibrary(library.root, fakeFetch(PNG, 404)).sync(url, true)
     ).rejects.toBeInstanceOf(DownloadError);
+  });
+
+  it("stays detached from the original after the import", async () => {
+    const folder = source({ type: "folder", path: originals });
+    await library.sync(folder, false);
+    fs.writeFileSync(path.join(originals, "背景3.png"), PNG);
+    // Nothing re-imports an unchanged source, so new originals do not show up by themselves.
+    expect(library.isStale(folder)).toBe(false);
+    expect(library.images(folder)).toHaveLength(2);
+  });
+
+  it("shows images dropped into the source folder and keeps them when adding more", async () => {
+    const file = source({ path: path.join(originals, "背景2.png") });
+    await library.sync(file, false);
+    fs.writeFileSync(path.join(library.dirFor("src"), "dropped.png"), PNG);
+    expect(library.images(file).map((image) => path.basename(image))).toContain("dropped.png");
+
+    expect(await library.addImages(file, [path.join(originals, "背景10.jpg")])).toBe(1);
+    expect(await library.addImages(file, [path.join(originals, "背景10.jpg")])).toBe(0);
+    const names = library.images(file).map((image) => path.extname(image));
+    expect(names).toEqual([".png", ".jpg", ".png"]);
+    expect(library.isStale(file)).toBe(false);
+  });
+
+  it("reorders and removes images inside a source", async () => {
+    const folder = source({ type: "folder", path: originals });
+    await library.sync(folder, false);
+    const [first, second] = library.fileNames("src");
+    await library.reorder(folder, [second, first]);
+    expect(library.fileNames("src")).toEqual([second, first]);
+    expect(library.fileOf("src", first)).toBe(path.join(library.dirFor("src"), first));
+
+    await library.removeImage(folder, second);
+    expect(library.fileNames("src")).toEqual([first]);
+    expect(library.fileOf("src", second)).toBeNull();
   });
 
   it("hashes unsafe source ids into the folder name", () => {

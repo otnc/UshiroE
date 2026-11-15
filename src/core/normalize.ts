@@ -8,7 +8,9 @@ import {
   type ImageSource,
   MODES,
   type Mode,
+  PRESET_PREFIX,
   type Preset,
+  type Rotation,
   SIZES,
   type Size,
   SOURCE_TYPES,
@@ -26,6 +28,25 @@ export function defaultSourceName(path: string): string {
   return last === "" ? trimmed : last;
 }
 
+/** Reads the shared rotation fields, falling back to `fallback` for missing ones. */
+export function normalizeRotation(raw: unknown, fallback: Rotation): Rotation {
+  const value = isRecord(raw) ? raw : {};
+  return {
+    random: typeof value.random === "boolean" ? value.random : fallback.random,
+    interval: Math.max(0, finiteNumber(value.interval, fallback.interval)),
+    changeOnStartupOnly:
+      typeof value.changeOnStartupOnly === "boolean"
+        ? value.changeOnStartupOnly
+        : fallback.changeOnStartupOnly,
+  };
+}
+
+const SOURCE_ROTATION: Rotation = {
+  random: false,
+  interval: DEFAULT_INTERVAL_SECONDS,
+  changeOnStartupOnly: false,
+};
+
 export function normalizeSource(raw: unknown): ImageSource | null {
   const path = isRecord(raw) ? nonEmptyString(raw.path) : null;
   if (!isRecord(raw) || path === null) {
@@ -37,8 +58,7 @@ export function normalizeSource(raw: unknown): ImageSource | null {
     type: oneOf<SourceType>(SOURCE_TYPES, raw.type, "file"),
     path,
     description: typeof raw.description === "string" ? raw.description.trim() : "",
-    random: raw.random === true,
-    interval: Math.max(0, finiteNumber(raw.interval, DEFAULT_INTERVAL_SECONDS)),
+    ...normalizeRotation(raw, SOURCE_ROTATION),
     recursive: raw.recursive === true,
     refresh: oneOf<UrlRefresh>(URL_REFRESH_MODES, raw.refresh, "never"),
   };
@@ -88,12 +108,17 @@ export function normalizeArea(id: AreaId, raw: unknown): AreaSettings {
   };
 }
 
-/** Normalizes every area and clears references to sources that no longer exist. */
+/** Normalizes every area and clears references to sources or presets that no longer exist. */
 function normalizeAreas(
   raw: Record<string, unknown>,
-  sources: readonly ImageSource[]
+  sources: readonly ImageSource[],
+  presets: readonly Preset[]
 ): Record<AreaId, AreaSettings> {
-  const known = new Set([ALL_SOURCES, ...sources.map((source) => source.id)]);
+  const known = new Set([
+    ALL_SOURCES,
+    ...sources.map((source) => source.id),
+    ...presets.map((preset) => PRESET_PREFIX + preset.id),
+  ]);
   const areas = {} as Record<AreaId, AreaSettings>;
   for (const id of AREA_IDS) {
     const area = normalizeArea(id, raw[id]);
@@ -105,16 +130,32 @@ function normalizeAreas(
   return areas;
 }
 
-export function normalizePreset(raw: unknown, sources: readonly ImageSource[]): Preset | null {
+const PRESET_ROTATION: Rotation = { random: false, interval: 60, changeOnStartupOnly: false };
+
+/** A preset image reference: `<source id>/<file name>`. */
+export function parseImageRef(ref: string): { sourceId: string; file: string } | null {
+  const slash = ref.lastIndexOf("/");
+  if (slash <= 0 || slash === ref.length - 1) {
+    return null;
+  }
+  return { sourceId: ref.slice(0, slash), file: ref.slice(slash + 1) };
+}
+
+export function normalizePreset(raw: unknown): Preset | null {
   const name = isRecord(raw) ? nonEmptyString(raw.name) : null;
   if (!isRecord(raw) || name === null) {
     return null;
   }
+  const images = Array.isArray(raw.images)
+    ? raw.images.filter(
+        (ref): ref is string => typeof ref === "string" && parseImageRef(ref) !== null
+      )
+    : [];
   return {
     id: nonEmptyString(raw.id) ?? name,
     name,
-    mode: oneOf<Mode>(MODES, raw.mode, "fullscreen"),
-    areas: normalizeAreas(isRecord(raw.areas) ? raw.areas : {}, sources),
+    images,
+    ...normalizeRotation(raw, PRESET_ROTATION),
   };
 }
 
@@ -126,14 +167,14 @@ export function normalizeSettings(
   settings.enabled = raw.enabled === true;
   settings.mode = oneOf<Mode>(MODES, raw.mode, "fullscreen");
   settings.sources = normalizeSources(raw.sources);
-  settings.areas = normalizeAreas(isRecord(raw.areas) ? raw.areas : raw, settings.sources);
-  settings.transition = clamp(finiteNumber(raw.transition, settings.transition), 0, 30);
-  settings.shuffleInterval = Math.max(
-    0,
-    finiteNumber(raw.shuffleInterval, settings.shuffleInterval)
+  settings.presets = uniqueById(raw.presets, normalizePreset);
+  settings.areas = normalizeAreas(
+    isRecord(raw.areas) ? raw.areas : raw,
+    settings.sources,
+    settings.presets
   );
-  settings.presets = uniqueById(raw.presets, (item) => normalizePreset(item, settings.sources));
-  settings.randomPresetOnStartup = raw.randomPresetOnStartup === true;
+  settings.transition = clamp(finiteNumber(raw.transition, settings.transition), 0, 30);
+  settings.allImages = normalizeRotation(raw.allImages, settings.allImages);
   return settings;
 }
 

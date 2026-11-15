@@ -4,7 +4,9 @@ import {
   type AreaSettings,
   type ImageSource,
   type Mode,
+  PRESET_PREFIX,
   type Preset,
+  type Rotation,
   type UshiroeSettings,
 } from "../core/model";
 import type { Ownership } from "../core/ownership";
@@ -13,11 +15,17 @@ import type { Strings } from "../ui/strings";
 interface SourceView extends ImageSource {
   count: number;
   thumbnail: string | null;
+  images: { file: string; ref: string; thumbnail: string }[];
+}
+
+interface PresetView extends Preset {
+  entries: { ref: string; thumbnail: string | null }[];
 }
 
 interface State {
   settings: UshiroeSettings;
   sources: SourceView[];
+  presets: PresetView[];
   library: { root: string; isDefault: boolean };
   status: {
     patch: "applied" | "outdated" | "missing" | "unknown";
@@ -193,101 +201,179 @@ function renderMode(mode: Mode): string {
 </section>`;
 }
 
-function renderArea(id: AreaId, area: AreaSettings, sources: SourceView[]): string {
+function renderArea(id: AreaId, area: AreaSettings, current: State): string {
   const isPart = id !== "fullscreen";
   const title = t[`area_${id}` as keyof Strings];
-  const sourceOptions = options(
-    [
-      ["", t.noImage],
-      [ALL_SOURCES, t.allImages],
-      ...sources.map((source): [string, string] => [source.id, source.name]),
-    ],
-    area.source ?? ""
-  );
+  const choice = (value: string, label: string) =>
+    `<option value="${escapeHtml(value)}"${value === (area.source ?? "") ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  const presetOptions = current.presets
+    .map((preset) => choice(PRESET_PREFIX + preset.id, preset.name))
+    .join("");
+  const sourceOptions = current.sources.map((source) => choice(source.id, source.name)).join("");
+  const imageSelect = `${choice("", t.noImage)}${choice(ALL_SOURCES, t.allImages)}${
+    presetOptions ? `<optgroup label="${escapeHtml(t.presets)}">${presetOptions}</optgroup>` : ""
+  }${sourceOptions ? `<optgroup label="${escapeHtml(t.sources)}">${sourceOptions}</optgroup>` : ""}`;
   const positions: [string, string][] = POSITIONS.map(([value, key]) => [value, t[key]]);
   if (!POSITIONS.some(([value]) => value === area.position)) {
     positions.push([area.position, format(t.position_custom, area.position)]);
   }
   const header = isPart
-    ? `<label class="area-toggle"><input type="checkbox" data-area="${id}" data-field="enabled"${area.enabled ? " checked" : ""}><span>${escapeHtml(title)}</span></label>`
+    ? `<label class="area-toggle"><input type="checkbox" data-scope="area" data-id="${id}" data-field="enabled"${area.enabled ? " checked" : ""}><span>${escapeHtml(title)}</span></label>`
     : `<span class="area-title">${escapeHtml(title)}</span>`;
   const collapsed = isPart && !area.enabled;
+  const attrs = `data-scope="area" data-id="${id}"`;
   return `<div class="card${collapsed ? " collapsed" : ""}">
   <div class="card-header">${header}</div>
   ${
     collapsed
       ? ""
       : `<div class="card-body">
-    <label class="field"><span>${escapeHtml(t.image)}</span><select data-area="${id}" data-field="source">${sourceOptions}</select></label>
+    <label class="field"><span>${escapeHtml(t.image)}</span><select ${attrs} data-field="source">${imageSelect}</select></label>
     <label class="field"><span>${escapeHtml(t.opacity)} <output id="opacity-${id}">${Math.round(area.opacity * 100)}%</output></span>
-      <input type="range" min="0" max="1" step="0.01" value="${area.opacity}" data-area="${id}" data-field="opacity" data-output="opacity-${id}"></label>
+      <input type="range" min="0" max="1" step="0.01" value="${area.opacity}" ${attrs} data-field="opacity" data-output="opacity-${id}"></label>
     <div class="row">
-      <label class="field"><span>${escapeHtml(t.size)}</span><select data-area="${id}" data-field="size">${options(
+      <label class="field"><span>${escapeHtml(t.size)}</span><select ${attrs} data-field="size">${options(
         SIZES.map((size) => [size, t[`size_${size}` as keyof Strings]]),
         area.size
       )}</select></label>
-      <label class="field"><span>${escapeHtml(t.position)}</span><select data-area="${id}" data-field="position">${options(positions, area.position)}</select></label>
+      <label class="field"><span>${escapeHtml(t.position)}</span><select ${attrs} data-field="position">${options(positions, area.position)}</select></label>
     </div>
-    <label class="field"><span>${escapeHtml(t.blur)}</span><input type="number" min="0" max="200" step="1" value="${area.blur}" data-area="${id}" data-field="blur"></label>
+    <label class="field"><span>${escapeHtml(t.blur)}</span><input type="number" min="0" max="200" step="1" value="${area.blur}" ${attrs} data-field="blur"></label>
   </div>`
   }
 </div>`;
 }
 
 function renderAreas(current: State): string {
-  const { settings, sources } = current;
-  const ids: AreaId[] = settings.mode === "fullscreen" ? ["fullscreen"] : PART_ORDER;
-  return `<section class="areas">${ids.map((id) => renderArea(id, settings.areas[id], sources)).join("")}</section>`;
+  const ids: AreaId[] = current.settings.mode === "fullscreen" ? ["fullscreen"] : PART_ORDER;
+  return `<section class="areas">${ids.map((id) => renderArea(id, current.settings.areas[id], current)).join("")}</section>`;
 }
 
-function renderSource(source: SourceView): string {
+/** A button that posts `message` to the extension when clicked. */
+function messageButton(
+  label: string,
+  message: Record<string, unknown>,
+  options: { icon?: string; title?: string; disabled?: boolean } = {}
+): string {
+  const title = options.title ?? label;
+  return `<button type="button" class="button ${label ? "secondary" : "secondary icon-only"}" data-message="${escapeHtml(JSON.stringify(message))}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"${options.disabled ? " disabled" : ""}>${options.icon ? icon(options.icon) : ""}${label ? `<span>${escapeHtml(label)}</span>` : ""}</button>`;
+}
+
+/** Order, interval and "only at startup", shared by sources, presets and All images. */
+function rotationFields(
+  scope: "source" | "preset" | "all",
+  id: string,
+  rotation: Rotation
+): string {
+  const attrs = `data-scope="${scope}" data-id="${escapeHtml(id)}"`;
+  const timed = !rotation.changeOnStartupOnly;
+  return `<div class="rotation">
+  <label class="field"><span>${escapeHtml(t.order)}</span><select ${attrs} data-field="random">${options(
+    [
+      ["false", t.order_sequential],
+      ["true", t.order_random],
+    ],
+    String(rotation.random)
+  )}</select></label>
+  <label class="check"><input type="checkbox" ${attrs} data-field="changeOnStartupOnly"${rotation.changeOnStartupOnly ? " checked" : ""}><span>${escapeHtml(t.changeOnStartupOnly)}</span></label>
+  ${
+    timed
+      ? `<label class="field"><span>${escapeHtml(t.interval)}</span><input type="number" min="0" step="1" value="${rotation.interval}" ${attrs} data-field="interval"></label>`
+      : ""
+  }
+</div>`;
+}
+
+/** One row of an ordered image list, with buttons to move or remove it. */
+function imageRow(
+  thumbnail: string | null,
+  label: string,
+  moves: {
+    up: Record<string, unknown>;
+    down: Record<string, unknown>;
+    first: boolean;
+    last: boolean;
+  },
+  remove: Record<string, unknown> | null
+): string {
+  return `<li class="image-row">
+  <div class="thumb small">${thumbnail ? `<img src="${escapeHtml(thumbnail)}" alt="" loading="lazy">` : icon("warning")}</div>
+  <span class="image-label">${escapeHtml(label)}</span>
+  <span class="spacer"></span>
+  ${messageButton("", moves.up, { icon: "arrow-up", title: t.moveUp, disabled: moves.first })}
+  ${messageButton("", moves.down, { icon: "arrow-down", title: t.moveDown, disabled: moves.last })}
+  ${remove ? messageButton("", remove, { icon: "close", title: t.removeImage }) : ""}
+</li>`;
+}
+
+function renderSource(source: SourceView, index: number, total: number): string {
+  const id = escapeHtml(source.id);
   const detailsId = `source-${source.id}`;
-  const missing = source.count === 0;
-  const meta = missing
-    ? `<span class="error">${icon("error")} ${escapeHtml(t.notFound)}</span>`
-    : source.type === "folder"
-      ? escapeHtml(format(t.imageCount, source.count))
-      : source.type === "url"
-        ? escapeHtml(source.refresh === "startup" ? t.refresh_startup : t.refresh_never)
-        : "";
+  const isUrl = source.type === "url";
+  const meta =
+    source.count === 0
+      ? `<span class="error">${icon("error")} ${escapeHtml(t.notFound)}</span>`
+      : escapeHtml(format(t.imageCount, source.count));
   const thumbnail = source.thumbnail
     ? `<img src="${escapeHtml(source.thumbnail)}" alt="" loading="lazy">`
-    : icon(source.type === "folder" ? "folder" : source.type === "url" ? "globe" : "file-media");
-  const interval =
-    source.type === "folder"
-      ? `<label class="field"><span>${escapeHtml(t.interval)}</span><input type="number" min="0" step="1" value="${source.interval}" data-source="${escapeHtml(source.id)}" data-field="interval"></label>
-      <label class="check"><input type="checkbox" data-source="${escapeHtml(source.id)}" data-field="random"${source.random ? " checked" : ""}><span>${escapeHtml(t.random)}</span></label>
-      <label class="check"><input type="checkbox" data-source="${escapeHtml(source.id)}" data-field="recursive"${source.recursive ? " checked" : ""}><span>${escapeHtml(t.recursive)}</span></label>`
-      : source.type === "url"
-        ? `<label class="field"><span>${escapeHtml(t.refresh)}</span><select data-source="${escapeHtml(source.id)}" data-field="refresh">${options(
-            [
-              ["never", t.refresh_never],
-              ["startup", t.refresh_startup],
-            ],
-            source.refresh
-          )}</select></label>`
-        : "";
-  const again = button(
-    source.type === "url" ? t.downloadAgain : t.copyAgain,
-    `cmd:ushiroe.refreshSource|${source.id}`,
-    { icon: "sync" }
-  );
-  return `<li class="source${missing ? " missing" : ""}">
+    : icon(source.type === "folder" ? "folder" : isUrl ? "globe" : "file-media");
+  const origin = isUrl
+    ? `<label class="field"><span>${escapeHtml(t.refresh)}</span><select data-scope="source" data-id="${id}" data-field="refresh">${options(
+        [
+          ["never", t.refresh_never],
+          ["startup", t.refresh_startup],
+        ],
+        source.refresh
+      )}</select></label>
+      <div class="field"><span>${escapeHtml(t.url)}</span><div class="origin" title="${escapeHtml(source.path)}">${escapeHtml(source.path)}</div></div>`
+    : `<div class="field"><span>${escapeHtml(t.importedFrom)}</span><div class="origin" title="${escapeHtml(source.path)}">${escapeHtml(source.path)}</div></div>`;
+  const images =
+    source.images.length > 1
+      ? `<div class="field"><span>${escapeHtml(t.imageOrder)}</span><ol class="image-list">${source.images
+          .map((image, position) =>
+            imageRow(
+              image.thumbnail,
+              format(t.imageNumber, position + 1),
+              {
+                up: { type: "moveSourceImage", id: source.id, file: image.file, delta: -1 },
+                down: { type: "moveSourceImage", id: source.id, file: image.file, delta: 1 },
+                first: position === 0,
+                last: position === source.images.length - 1,
+              },
+              isUrl ? null : { type: "removeSourceImage", id: source.id, file: image.file }
+            )
+          )
+          .join("")}</ol></div>`
+      : "";
+  const actions = [
+    isUrl
+      ? button(t.downloadAgain, `cmd:ushiroe.refreshSource|${source.id}`, { icon: "sync" })
+      : button(t.addImagesToSource, `cmd:ushiroe.addImagesToSource|${source.id}`, { icon: "add" }),
+    button(t.openSourceFolder, `cmd:ushiroe.openSourceFolder|${source.id}`, {
+      icon: "folder-opened",
+    }),
+  ];
+  return `<li class="source${source.count === 0 ? " missing" : ""}">
   <div class="source-main">
+    <div class="reorder">
+      ${messageButton("", { type: "moveSource", id: source.id, delta: -1 }, { icon: "chevron-up", title: t.moveUp, disabled: index === 0 })}
+      ${messageButton("", { type: "moveSource", id: source.id, delta: 1 }, { icon: "chevron-down", title: t.moveDown, disabled: index === total - 1 })}
+    </div>
     <div class="thumb">${thumbnail}</div>
     <div class="source-text">
       <div class="source-name">${escapeHtml(source.name)}</div>
       <div class="source-meta"><span class="badge">${escapeHtml(t[`type_${source.type}` as keyof Strings])}</span>${meta}</div>
-      <div class="source-path" title="${escapeHtml(source.path)}">${escapeHtml(source.path)}</div>
     </div>
     ${button("", `remove:${source.id}`, { icon: "trash", title: t.remove })}
   </div>
   <details data-details="${escapeHtml(detailsId)}"${openDetails.has(detailsId) ? " open" : ""}>
     <summary>${escapeHtml(t.details)}</summary>
     <div class="details-body">
-      <label class="field"><span>${escapeHtml(t.name)}</span><input type="text" value="${escapeHtml(source.name)}" data-source="${escapeHtml(source.id)}" data-field="name"></label>
-      ${interval}
-      <div class="button-row">${again}</div>
+      <label class="field"><span>${escapeHtml(t.name)}</span><input type="text" value="${escapeHtml(source.name)}" data-scope="source" data-id="${id}" data-field="name"></label>
+      ${source.count > 1 ? rotationFields("source", source.id, source) : ""}
+      ${images}
+      ${origin}
+      <div class="button-row">${actions.join("")}</div>
     </div>
   </details>
 </li>`;
@@ -297,7 +383,7 @@ function renderSources(current: State): string {
   const list =
     current.sources.length === 0
       ? `<p class="empty">${escapeHtml(t.noSources)}</p>`
-      : `<ul class="sources">${current.sources.map(renderSource).join("")}</ul>`;
+      : `<ul class="sources">${current.sources.map((source, index) => renderSource(source, index, current.sources.length)).join("")}</ul>`;
   return `<section>
   <div class="section-header">
     <h2>${escapeHtml(t.sources)}</h2>
@@ -311,6 +397,92 @@ function renderSources(current: State): string {
 </section>`;
 }
 
+function renderPreset(preset: PresetView, current: State): string {
+  const detailsId = `preset-${preset.id}`;
+  const pickerId = `picker-${preset.id}`;
+  const entries =
+    preset.entries.length === 0
+      ? `<p class="empty">${escapeHtml(t.noPresetImages)}</p>`
+      : `<ol class="image-list">${preset.entries
+          .map((entry, index) =>
+            imageRow(
+              entry.thumbnail,
+              format(t.imageNumber, index + 1),
+              {
+                up: { type: "movePresetImage", id: preset.id, index, delta: -1 },
+                down: { type: "movePresetImage", id: preset.id, index, delta: 1 },
+                first: index === 0,
+                last: index === preset.entries.length - 1,
+              },
+              { type: "removePresetImage", id: preset.id, index }
+            )
+          )
+          .join("")}</ol>`;
+  const picker = current.sources
+    .filter((source) => source.images.length > 0)
+    .map(
+      (source) => `<div class="picker-group">
+      <div class="picker-title">${escapeHtml(source.name)}</div>
+      <div class="picker-grid">${source.images
+        .map(
+          (image, index) =>
+            `<button type="button" class="picker-item" data-message="${escapeHtml(JSON.stringify({ type: "addPresetImage", id: preset.id, ref: image.ref }))}" title="${escapeHtml(format(t.addImageNumber, source.name, index + 1))}"><img src="${escapeHtml(image.thumbnail)}" alt="${escapeHtml(format(t.addImageNumber, source.name, index + 1))}" loading="lazy"></button>`
+        )
+        .join("")}</div>
+    </div>`
+    )
+    .join("");
+  const strip = preset.entries
+    .slice(0, 6)
+    .map((entry) =>
+      entry.thumbnail ? `<img src="${escapeHtml(entry.thumbnail)}" alt="" loading="lazy">` : ""
+    )
+    .join("");
+  return `<li class="preset">
+  <details data-details="${escapeHtml(detailsId)}"${openDetails.has(detailsId) ? " open" : ""}>
+    <summary>
+      <span class="preset-name">${escapeHtml(preset.name)}</span>
+      <span class="preset-meta">${escapeHtml(format(t.imageCount, preset.entries.length))}</span>
+      <span class="preset-strip">${strip}</span>
+    </summary>
+    <div class="details-body">
+      <label class="field"><span>${escapeHtml(t.name)}</span><input type="text" value="${escapeHtml(preset.name)}" data-scope="preset" data-id="${escapeHtml(preset.id)}" data-field="name"></label>
+      ${rotationFields("preset", preset.id, preset)}
+      <div class="field"><span>${escapeHtml(t.imageOrder)}</span>${entries}</div>
+      <details class="picker" data-details="${escapeHtml(pickerId)}"${openDetails.has(pickerId) ? " open" : ""}>
+        <summary>${icon("add")} ${escapeHtml(t.addToPreset)}</summary>
+        <p class="hint">${escapeHtml(t.addToPresetHint)}</p>
+        ${picker || `<p class="empty">${escapeHtml(t.noSources)}</p>`}
+      </details>
+      <div class="button-row">${button(t.deletePreset, `cmd:ushiroe.deletePreset|${preset.id}`, { icon: "trash" })}</div>
+    </div>
+  </details>
+</li>`;
+}
+
+function renderPresets(current: State): string {
+  const list =
+    current.presets.length === 0
+      ? `<p class="empty">${escapeHtml(t.noPresets)}</p>`
+      : `<ul class="presets">${current.presets.map((preset) => renderPreset(preset, current)).join("")}</ul>`;
+  return `<section>
+  <div class="section-header">
+    <h2>${escapeHtml(t.presets)}</h2>
+    <div class="add-buttons">${button(t.newPreset, "cmd:ushiroe.newPreset", { icon: "add" })}</div>
+  </div>
+  <p class="hint">${escapeHtml(t.presetsHint)}</p>
+  ${list}
+</section>`;
+}
+
+function renderAllImages(current: State): string {
+  return `<section>
+  <h2>${escapeHtml(t.allImages)}</h2>
+  <p class="hint">${escapeHtml(t.allImagesHint)}</p>
+  ${rotationFields("all", "all", current.settings.allImages)}
+</section>`;
+}
+
 function renderLibrary(current: State): string {
   return `<section>
   <h2>${escapeHtml(t.library)}</h2>
@@ -321,38 +493,6 @@ function renderLibrary(current: State): string {
     ${button(t.chooseLibrary, "cmd:ushiroe.chooseLibraryFolder", { icon: "edit" })}
     ${current.library.isDefault ? "" : button(t.resetLibrary, "cmd:ushiroe.resetLibraryFolder", { icon: "discard" })}
     ${button(t.refreshImages, "cmd:ushiroe.refreshImages", { icon: "sync" })}
-  </div>
-</section>`;
-}
-
-function renderPreset(preset: Preset): string {
-  return `<li class="preset">
-  <span class="preset-name">${escapeHtml(preset.name)}</span>
-  <span class="badge">${escapeHtml(preset.mode === "fullscreen" ? t.modeFullscreen : t.modeParts)}</span>
-  <span class="spacer"></span>
-  ${button("", `cmd:ushiroe.applyPreset|${preset.id}`, { icon: "play", title: t.applyPreset })}
-  ${button("", `cmd:ushiroe.deletePreset|${preset.id}`, { icon: "trash", title: t.deletePreset })}
-</li>`;
-}
-
-function renderRandom(current: State): string {
-  const { settings } = current;
-  const list =
-    settings.presets.length === 0
-      ? `<p class="empty">${escapeHtml(t.noPresets)}</p>`
-      : `<ul class="presets">${settings.presets.map(renderPreset).join("")}</ul>`;
-  return `<section>
-  <div class="section-header">
-    <h2>${escapeHtml(t.presets)}</h2>
-    <div class="add-buttons">
-      ${button(t.savePreset, "cmd:ushiroe.savePreset", { icon: "save" })}
-      ${button(t.randomPreset, "cmd:ushiroe.randomPreset", { icon: "debug-restart" })}
-    </div>
-  </div>
-  ${list}
-  <div class="details-body">
-    <label class="check"><input type="checkbox" data-option="randomPresetOnStartup"${settings.randomPresetOnStartup ? " checked" : ""}><span>${escapeHtml(t.randomPresetOnStartup)}</span></label>
-    <label class="field"><span>${escapeHtml(t.shuffleInterval)}</span><input type="number" min="0" step="1" value="${settings.shuffleInterval}" data-option="shuffleInterval"></label>
   </div>
 </section>`;
 }
@@ -374,25 +514,26 @@ function render(): void {
     return;
   }
   const active = document.activeElement as HTMLElement | null;
-  const focusKey = active?.dataset.field
-    ? `${active.dataset.area ?? active.dataset.source}|${active.dataset.field}`
-    : active?.dataset.action;
+  const focusSelector = active?.dataset.field
+    ? `[data-scope="${CSS.escape(active.dataset.scope ?? "")}"][data-id="${CSS.escape(active.dataset.id ?? "")}"][data-field="${CSS.escape(active.dataset.field)}"]`
+    : active?.dataset.action
+      ? `[data-action="${CSS.escape(active.dataset.action)}"]`
+      : active?.dataset.message
+        ? `[data-message="${CSS.escape(active.dataset.message)}"]`
+        : null;
   const scroll = window.scrollY;
   app.innerHTML = [
     renderStatus(state),
     renderMode(state.settings.mode),
     renderAreas(state),
     renderSources(state),
-    renderRandom(state),
+    renderPresets(state),
+    renderAllImages(state),
     renderLibrary(state),
     renderTransfer(),
   ].join("");
-  if (focusKey) {
-    const [owner, field] = focusKey.split("|");
-    const selector = field
-      ? `[data-field="${CSS.escape(field)}"][data-area="${CSS.escape(owner)}"], [data-field="${CSS.escape(field)}"][data-source="${CSS.escape(owner)}"]`
-      : `[data-action="${CSS.escape(focusKey)}"]`;
-    (app.querySelector(selector) as HTMLElement | null)?.focus();
+  if (focusSelector) {
+    (app.querySelector(focusSelector) as HTMLElement | null)?.focus();
   }
   window.scrollTo(0, scroll);
 }
@@ -408,15 +549,24 @@ function fieldValue(input: HTMLInputElement | HTMLSelectElement): unknown {
     }
   }
   const value = input.value;
+  if (input.dataset.field === "random") {
+    return value === "true";
+  }
   return input.dataset.field === "source" && value === "" ? null : value;
 }
 
 app.addEventListener("click", (event) => {
-  const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
-  const action = target?.dataset.action;
-  if (!action || !state) {
+  const target = (event.target as HTMLElement).closest<HTMLElement>(
+    "[data-action], [data-message]"
+  );
+  if (!target || !state) {
     return;
   }
+  if (target.dataset.message) {
+    vscode.postMessage(JSON.parse(target.dataset.message));
+    return;
+  }
+  const action = target.dataset.action ?? "";
   if (action === "toggle") {
     vscode.postMessage({ type: "setEnabled", value: !state.settings.enabled });
   } else if (action.startsWith("mode:")) {
@@ -439,27 +589,21 @@ app.addEventListener("input", (event) => {
   }
 });
 
+const UPDATE_MESSAGES: Record<string, string> = {
+  area: "updateArea",
+  source: "updateSource",
+  preset: "updatePreset",
+  all: "updateAllImages",
+};
+
 app.addEventListener("change", (event) => {
   const input = event.target as HTMLInputElement | HTMLSelectElement;
-  const option = input.dataset.option;
-  if (option === "randomPresetOnStartup") {
-    vscode.postMessage({ type: "setRandomPresetOnStartup", value: fieldValue(input) });
+  const { scope, id, field } = input.dataset;
+  const type = scope ? UPDATE_MESSAGES[scope] : undefined;
+  if (!type || !field) {
     return;
   }
-  if (option === "shuffleInterval") {
-    vscode.postMessage({ type: "setShuffleInterval", value: fieldValue(input) });
-    return;
-  }
-  const field = input.dataset.field;
-  if (!field) {
-    return;
-  }
-  const patch = { [field]: fieldValue(input) };
-  if (input.dataset.area) {
-    vscode.postMessage({ type: "updateArea", id: input.dataset.area, patch });
-  } else if (input.dataset.source) {
-    vscode.postMessage({ type: "updateSource", id: input.dataset.source, patch });
-  }
+  vscode.postMessage({ type, id, patch: { [field]: fieldValue(input) } });
 });
 
 app.addEventListener(

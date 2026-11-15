@@ -18,11 +18,25 @@ export function toWorkbenchUrl(filePath: string): string {
 
 const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
+/** Sorts names the way people expect, so `img2` comes before `img10`. */
+export function naturalCompare(a: string, b: string): number {
+  return naturalOrder.compare(a, b);
+}
+
 export async function listFolderImages(folder: string, recursive: boolean): Promise<string[]> {
   const entries = await fs.promises.readdir(folder, { withFileTypes: true, recursive });
   return entries
     .filter((entry) => entry.isFile() && isSupportedImage(entry.name))
     .map((entry) => path.join(entry.parentPath, entry.name))
-    .sort((a, b) => naturalOrder.compare(a, b))
+    .sort(naturalCompare)
     .slice(0, MAX_FOLDER_IMAGES);
+}
+
+/** True when subfolders hold images that a non-recursive import would leave out. */
+export async function hasImagesInSubfolders(folder: string): Promise<boolean> {
+  const [top, all] = await Promise.all([
+    listFolderImages(folder, false),
+    listFolderImages(folder, true),
+  ]);
+  return all.length > top.length;
 }

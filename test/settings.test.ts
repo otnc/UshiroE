@@ -101,7 +101,13 @@ describe("buildLiveConfig", () => {
     file: ["/lib/file/c.png"],
     missing: [],
   };
-  const lookup = (source: { id: string }) => copies[source.id] ?? [];
+  const resolver = {
+    imagesOf: (source: { id: string }) => copies[source.id] ?? [],
+    fileOf: (ref: string) => {
+      const [id, name] = ref.split("/");
+      return copies[id]?.find((file) => file.endsWith(`/${name}`)) ?? null;
+    },
+  };
   const sources = [
     { id: "folder", type: "folder", path: "/pics", interval: 5, random: true },
     { id: "file", type: "file", path: "/c.png" },
@@ -116,7 +122,7 @@ describe("buildLiveConfig", () => {
       editor: { enabled: true, source: "folder", opacity: 0.3 },
       sidebar: { enabled: true, source: "missing" },
     });
-    const live = buildLiveConfig(settings, 4, lookup);
+    const live = buildLiveConfig(settings, 4, resolver);
     expect(live.enabled).toBe(true);
     expect(live.cycle).toBe(4);
     expect(live.areas).toHaveLength(1);
@@ -125,20 +131,57 @@ describe("buildLiveConfig", () => {
       opacity: 0.3,
       random: true,
       interval: 5000,
+      changeOnStartupOnly: false,
     });
     expect(live.areas[0].images).toEqual(copies.folder.map(toWorkbenchUrl));
   });
 
-  it("pools every source in random order for the all-images choice", () => {
+  it("plays all images in source order with the All images rotation", () => {
+    const settings = normalizeSettings({
+      enabled: true,
+      sources: [sources[1], sources[0]],
+      allImages: { random: false, interval: 30 },
+      fullscreen: { source: ALL_SOURCES },
+    });
+    const [area] = buildLiveConfig(settings, 0, resolver).areas;
+    expect(area).toMatchObject({ id: "fullscreen", random: false, interval: 30000 });
+    expect(area.images).toEqual([...copies.file, ...copies.folder].map(toWorkbenchUrl));
+  });
+
+  it("defaults All images to random every 60 seconds", () => {
+    expect(normalizeSettings({}).allImages).toEqual({
+      random: true,
+      interval: 60,
+      changeOnStartupOnly: false,
+    });
+  });
+
+  it("plays a preset in its own order and skips images that are gone", () => {
     const settings = normalizeSettings({
       enabled: true,
       sources,
-      shuffleInterval: 30,
-      fullscreen: { source: ALL_SOURCES },
+      presets: [
+        {
+          id: "p",
+          name: "Favorites",
+          images: ["folder/b.png", "missing/x.png", "file/c.png", "folder/a.png"],
+          changeOnStartupOnly: true,
+          interval: 5,
+        },
+      ],
+      fullscreen: { source: "preset:p" },
     });
-    const [area] = buildLiveConfig(settings, 0, lookup).areas;
-    expect(area).toMatchObject({ id: "fullscreen", random: true, interval: 30000 });
-    expect(area.images).toHaveLength(3);
+    const [area] = buildLiveConfig(settings, 0, resolver).areas;
+    expect(area.images).toEqual(
+      ["/lib/folder/b.png", "/lib/file/c.png", "/lib/folder/a.png"].map(toWorkbenchUrl)
+    );
+    // Changing only at startup means no timer while VS Code runs.
+    expect(area).toMatchObject({ changeOnStartupOnly: true, interval: 0 });
+  });
+
+  it("forgets areas that point at a deleted preset", () => {
+    const settings = normalizeSettings({ sources, fullscreen: { source: "preset:gone" } });
+    expect(settings.areas.fullscreen.source).toBeNull();
   });
 });
 
