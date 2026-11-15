@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import {
@@ -7,13 +8,14 @@ import {
   ProgressLocation,
   RelativePattern,
   Uri,
+  env,
   l10n,
   window,
   workspace,
 } from "vscode";
 
 import { ImageLibrary } from "./core/library";
-import type { ImageSource, UshiroeSettings } from "./core/model";
+import { IMAGE_EXTENSIONS, type ImageSource, type UshiroeSettings } from "./core/model";
 import { picturesDir } from "./core/picturesDir";
 import type { ImageLookup } from "./core/resolve";
 import { readLibraryFolder, readSettings, setLibraryFolder } from "./settings";
@@ -25,11 +27,26 @@ interface SyncOptions {
   visible: boolean;
 }
 
-/** Keeps the image library in `<Pictures>/UshiroE/` in step with the configured sources. */
+/**
+ * Keeps the image library in `<Pictures>/UshiroE/` in step with the configured sources. Sources
+ * are imported once and not linked to their originals afterwards; only the library folder
+ * itself is watched, so images the user drops into it show up.
+ */
 export class LibraryManager implements Disposable {
   /** `<Pictures>/UshiroE`, looked up once because it may spawn a process on Windows. */
   private defaultRootCache: string | undefined;
   private current: ImageLibrary | undefined;
+
+  private readonly changed = new EventEmitter<void>();
+  /** Fires when images were added or removed, so the live config can pick them up. */
+  readonly onDidChange = this.changed.event;
+
+  private watcher: FileSystemWatcher | undefined;
+  private watchedRoot = "";
+  private watchTimer: ReturnType<typeof setTimeout> | undefined;
+  /** `id|url` pairs downloaded or tried in this session, so a failing URL is not retried in a loop. */
+  private readonly triedUrls = new Set<string>();
+  private queue: Promise<void> = Promise.resolve();
 
   get defaultRoot(): string {
     this.defaultRootCache ??= path.join(picturesDir(), "UshiroE");
@@ -45,23 +62,13 @@ export class LibraryManager implements Disposable {
     return this.current;
   }
 
-  private readonly changed = new EventEmitter<void>();
-  /** Fires when copies were added or removed, so the live config can pick them up. */
-  readonly onDidChange = this.changed.event;
-
-  private watchers: FileSystemWatcher[] = [];
-  private watchedKey = "";
-  /** `id|url` pairs downloaded or tried in this session, so a failing URL is not retried in a loop. */
-  private readonly triedUrls = new Set<string>();
-  private queue: Promise<void> = Promise.resolve();
-
   readonly lookup: ImageLookup = (source) => this.library.images(source);
 
   get root(): string {
     return this.library.root;
   }
 
-  /** Runs syncs one after another, so two never write the same library folder at once. */
+  /** Runs imports one after another, so two never write the same library folder at once. */
   private enqueue(task: () => Promise<void>): Promise<void> {
     this.queue = this.queue.then(task, task);
     return this.queue;
@@ -86,7 +93,7 @@ export class LibraryManager implements Disposable {
             try {
               await this.library.sync(source, options.refreshUrls(source));
             } catch (error) {
-              // A missing original is fine as long as an earlier copy is still there.
+              // A failed refresh is fine as long as earlier images are still there.
               if (options.visible || this.library.images(source).length === 0) {
                 const reason = error instanceof Error ? error.message : String(error);
                 failures.push(`${source.name}: ${reason}`);
@@ -104,37 +111,95 @@ export class LibraryManager implements Disposable {
     });
   }
 
-  /** At startup: refreshes every source, downloading URLs set to refresh, and drops stale copies. */
+  /** Sources that need importing: new ones, edited ones, and URLs that may be refreshed now. */
+  private pending(settings: UshiroeSettings, startup: boolean): ImageSource[] {
+    return settings.sources.filter((source) => {
+      if (source.type === "url" && startup && source.refresh === "startup") {
+        return true;
+      }
+      return (
+        this.library.isStale(source) &&
+        (source.type !== "url" || !this.triedUrls.has(`${source.id}|${source.path}`))
+      );
+    });
+  }
+
+  /** At startup: imports what is missing, downloads URLs set to refresh, drops removed sources. */
   async startup(settings: UshiroeSettings = readSettings()): Promise<void> {
     await this.library.prune(settings.sources).catch(() => undefined);
-    await this.sync(settings.sources, {
+    await this.sync(this.pending(settings, true), {
       refreshUrls: (source) => source.refresh === "startup",
       visible: false,
     });
-    this.updateWatchers(settings);
+    this.watchLibrary();
   }
 
-  /** After a settings change: copies new or edited sources and removes deleted ones. */
+  /** After a settings change: imports new or edited sources and removes deleted ones. */
   async settingsChanged(settings: UshiroeSettings = readSettings()): Promise<void> {
     await this.library.prune(settings.sources).catch(() => undefined);
-    const stale = settings.sources.filter(
-      (source) =>
-        this.library.isStale(source) &&
-        (source.type !== "url" || !this.triedUrls.has(`${source.id}|${source.path}`))
-    );
-    await this.sync(stale, { refreshUrls: () => false, visible: false });
-    this.updateWatchers(settings);
+    await this.sync(this.pending(settings, false), { refreshUrls: () => false, visible: false });
+    this.watchLibrary();
     this.changed.fire();
   }
 
-  /** Copies everything again and downloads every URL, reporting each failure. */
+  /** Downloads every URL source again, reporting each failure. */
   async refreshAll(): Promise<void> {
-    await this.sync(readSettings().sources, { refreshUrls: () => true, visible: true });
+    const urls = readSettings().sources.filter((source) => source.type === "url");
+    await this.sync(urls, { refreshUrls: () => true, visible: true });
+  }
+
+  /** Downloads one URL source again. */
+  async refreshSource(id: unknown): Promise<void> {
+    const source = this.find(id);
+    if (source?.type === "url") {
+      await this.sync([source], { refreshUrls: () => true, visible: true });
+    }
+  }
+
+  private find(id: unknown): ImageSource | undefined {
+    return readSettings().sources.find((candidate) => candidate.id === id);
+  }
+
+  /** Lets the user pick image files and copies them into an existing source. */
+  async addImagesTo(id: unknown): Promise<void> {
+    const source = this.find(id);
+    if (!source || source.type === "url") {
+      return;
+    }
+    const files = await window.showOpenDialog({
+      canSelectMany: true,
+      openLabel: l10n.t("Add Images"),
+      filters: { [l10n.t("Images")]: IMAGE_EXTENSIONS.map((extension) => extension.slice(1)) },
+    });
+    if (!files?.length) {
+      return;
+    }
+    await this.enqueue(async () => {
+      try {
+        await this.library.addImages(
+          source,
+          files.map((file) => file.fsPath)
+        );
+      } catch (error) {
+        void window.showWarningMessage(l10n.t("UshiroE could not copy some images."), {
+          detail: error instanceof Error ? error.message : String(error),
+        });
+      }
+      this.changed.fire();
+    });
+  }
+
+  /** Opens a source's folder in the library, where images can also be added by hand. */
+  async openSourceFolder(id: unknown): Promise<void> {
+    const source = this.find(id);
+    const dir = source ? this.library.dirFor(source.id) : this.root;
+    await fs.promises.mkdir(dir, { recursive: true });
+    await env.openExternal(Uri.file(dir));
   }
 
   /**
-   * Lets the user pick another library folder. Copies are made again in the new folder by the
-   * settings change that follows; the old folder is left as it is.
+   * Lets the user pick another library folder. Sources are imported again into the new folder
+   * by the settings change that follows; the old folder is left as it is.
    */
   async chooseFolder(): Promise<void> {
     const picked = await window.showOpenDialog({
@@ -157,53 +222,27 @@ export class LibraryManager implements Disposable {
     );
   }
 
-  async refreshSource(id: string): Promise<void> {
-    const source = readSettings().sources.find((candidate) => candidate.id === id);
-    if (source) {
-      await this.sync([source], { refreshUrls: () => true, visible: true });
-    }
-  }
-
-  /** Watches source folders, so images added to or removed from them are copied right away. */
-  private updateWatchers(settings: UshiroeSettings): void {
-    const folders = settings.sources.filter((source) => source.type === "folder");
-    const key = JSON.stringify(folders.map((source) => [source.id, source.path, source.recursive]));
-    if (key === this.watchedKey) {
+  /** Watches the library folder, so images added to or removed from it by hand show up. */
+  private watchLibrary(): void {
+    const root = this.root;
+    if (root === this.watchedRoot) {
       return;
     }
-    this.watchedKey = key;
-    this.disposeWatchers();
-    for (const source of folders) {
-      const watcher = workspace.createFileSystemWatcher(
-        new RelativePattern(Uri.file(source.path), source.recursive ? "**/*" : "*")
-      );
-      // Copying many files fires many events; wait for them to settle before syncing once.
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const resync = () => {
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-          const current = readSettings().sources.find((candidate) => candidate.id === source.id);
-          if (current) {
-            void this.sync([current], { refreshUrls: () => false, visible: false });
-          }
-        }, 500);
-      };
-      watcher.onDidCreate(resync);
-      watcher.onDidChange(resync);
-      watcher.onDidDelete(resync);
-      this.watchers.push(watcher);
-    }
-  }
-
-  private disposeWatchers(): void {
-    for (const watcher of this.watchers) {
-      watcher.dispose();
-    }
-    this.watchers = [];
+    this.watchedRoot = root;
+    this.watcher?.dispose();
+    this.watcher = workspace.createFileSystemWatcher(new RelativePattern(Uri.file(root), "**/*"));
+    // Copying many files fires many events; wait for them to settle before refreshing once.
+    const refresh = () => {
+      clearTimeout(this.watchTimer);
+      this.watchTimer = setTimeout(() => this.changed.fire(), 500);
+    };
+    this.watcher.onDidCreate(refresh);
+    this.watcher.onDidDelete(refresh);
   }
 
   dispose(): void {
-    this.disposeWatchers();
+    clearTimeout(this.watchTimer);
+    this.watcher?.dispose();
     this.changed.dispose();
   }
 }

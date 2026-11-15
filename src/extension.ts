@@ -83,7 +83,11 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
     commands.registerCommand("ushiroe.addImageFolder", addImageFolder),
     commands.registerCommand("ushiroe.addImageUrl", () => addImageUrl(library)),
     commands.registerCommand("ushiroe.refreshImages", () => library.refreshAll()),
-    commands.registerCommand("ushiroe.refreshSource", (id: string) => library.refreshSource(id)),
+    commands.registerCommand("ushiroe.refreshSource", (id: unknown) => library.refreshSource(id)),
+    commands.registerCommand("ushiroe.addImagesToSource", (id: unknown) => library.addImagesTo(id)),
+    commands.registerCommand("ushiroe.openSourceFolder", (id: unknown) =>
+      library.openSourceFolder(id)
+    ),
     commands.registerCommand("ushiroe.chooseLibraryFolder", () => library.chooseFolder()),
     commands.registerCommand("ushiroe.resetLibraryFolder", () => library.resetFolder()),
     commands.registerCommand("ushiroe.openLibrary", async () => {
