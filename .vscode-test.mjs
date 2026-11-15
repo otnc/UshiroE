@@ -18,4 +18,14 @@ export default defineConfig([
     launchArgs: ["--disable-extensions"],
     mocha: { ui: "bdd", timeout: 60000 },
   },
+  {
+    // Installed as a normal extension and then disabled: only installed extensions can be
+    // turned off with --disable-extension, so this checks what a disabled BackImage looks like.
+    label: "backimage-disabled",
+    files: "out/test/integration/backimageDisabled.test.js",
+    version: "stable",
+    installExtensions: ["out/backimage-fixture.vsix"],
+    launchArgs: ["--disable-extension", "ROBOTofficial.backimage"],
+    mocha: { ui: "bdd", timeout: 60000 },
+  },
 ]);
