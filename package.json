@@ -171,7 +171,8 @@
         {
           "id": "ushiroe.panel",
           "type": "webview",
-          "name": "%view.panel%"
+          "name": "%view.panel%",
+          "icon": "resources/activitybar.svg"
         }
       ]
     },

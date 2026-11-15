@@ -4,16 +4,15 @@ import { env, l10n, window } from "vscode";
 
 import type { RuntimeBoot } from "./runtime/main";
 import { type FileChange, applyChangesDirect, applyChangesElevated } from "./workbench/fileio";
+import { buildPatchBlock, inspectPatch } from "./workbench/patch";
+import { type WorkbenchPaths, workbenchPaths } from "./workbench/paths";
 import {
-  applyPatch,
-  buildPatchBlock,
-  inspectPatch,
-  replaceChecksum,
-  stripBackImage,
-  stripUshiroe,
-  vscodeChecksum,
-} from "./workbench/patch";
-import { WORKBENCH_SCRIPT_KEY, type WorkbenchPaths, workbenchPaths } from "./workbench/paths";
+  type WorkbenchEdit,
+  type WorkbenchFiles,
+  planApply,
+  planRemove,
+  planRemoveBackImage,
+} from "./workbench/plan";
 
 export type PatchState = "applied" | "outdated" | "missing";
 
@@ -47,54 +46,29 @@ export class Patcher {
     return this.expected;
   }
 
-  private readScript(): Promise<string> {
-    return fs.promises.readFile(this.paths.script, "utf8");
+  private async readFiles(): Promise<WorkbenchFiles> {
+    const script = await fs.promises.readFile(this.paths.script, "utf8");
+    const product = await fs.promises.readFile(this.paths.product, "utf8").catch(() => null);
+    return { script, product };
   }
 
   async status(): Promise<PatchStatus> {
-    const [{ hash }, info] = await Promise.all([
-      this.expectedBlock(),
-      this.readScript().then(inspectPatch),
-    ]);
+    const [{ hash }, files] = await Promise.all([this.expectedBlock(), this.readFiles()]);
+    const info = inspectPatch(files.script);
     const state: PatchState =
       info.hash === null ? "missing" : info.hash === hash ? "applied" : "outdated";
     return { state, hasBackImage: info.hasBackImage };
   }
 
-  /** Installs or updates the patch. Returns false when the script was already current. */
+  /** Installs or updates the patch. Returns whether the workbench script changed. */
   async apply(hideCorruptWarning: boolean): Promise<boolean> {
     const { block } = await this.expectedBlock();
-    const current = await this.readScript();
-    const original = stripBackImage(stripUshiroe(current));
-    const patched = applyPatch(current, block);
-    const changes: FileChange[] = [];
-    if (patched !== current) {
-      changes.push({ target: this.paths.script, content: patched });
-    }
-    // Matching the checksum to the patched file hides the "installation appears to be corrupt"
-    // notice; matching it to the original keeps VS Code's own check meaningful.
-    const product = await this.productChange(hideCorruptWarning ? patched : original);
-    if (product) {
-      changes.push(product);
-    }
-    await this.commit(changes);
-    return patched !== current;
+    return this.commit(planApply(await this.readFiles(), block, hideCorruptWarning));
   }
 
-  /** Removes the UshiroE patch and restores the checksum. Returns false when nothing was installed. */
+  /** Removes the UshiroE patch and restores the checksum. Returns whether anything was installed. */
   async remove(): Promise<boolean> {
-    const current = await this.readScript();
-    const restored = stripUshiroe(current);
-    const changes: FileChange[] = [];
-    if (restored !== current) {
-      changes.push({ target: this.paths.script, content: restored });
-    }
-    const product = await this.productChange(restored);
-    if (product) {
-      changes.push(product);
-    }
-    await this.commit(changes);
-    return restored !== current;
+    return this.commit(planRemove(await this.readFiles()));
   }
 
   existingBackImageBackups(): string[] {
@@ -103,49 +77,32 @@ export class Patcher {
 
   /** Deletes BackImage's patch and backup files. Only safe once BackImage is uninstalled. */
   async removeBackImageLeftovers(): Promise<void> {
-    const current = await this.readScript();
-    const cleaned = stripBackImage(current);
-    const changes: FileChange[] = this.existingBackImageBackups().map((target) => ({
-      target,
-      content: null,
-    }));
-    if (cleaned !== current) {
-      changes.push({ target: this.paths.script, content: cleaned });
-      const product = await this.productChange(cleaned);
-      if (product) {
-        changes.push(product);
-      }
-    }
-    await this.commit(changes);
+    const deletions = this.existingBackImageBackups().map((target) => ({ target, content: null }));
+    await this.commit(planRemoveBackImage(await this.readFiles()), deletions);
   }
 
-  private async productChange(script: string): Promise<FileChange | null> {
-    let product: string;
-    try {
-      product = await fs.promises.readFile(this.paths.product, "utf8");
-    } catch {
-      return null;
+  /** Writes the edit, asking for administrator rights when needed. Returns whether the script changed. */
+  private async commit(edit: WorkbenchEdit, extra: FileChange[] = []): Promise<boolean> {
+    const changes: FileChange[] = [...extra];
+    if (edit.script !== undefined) {
+      changes.push({ target: this.paths.script, content: edit.script });
     }
-    const updated = replaceChecksum(product, WORKBENCH_SCRIPT_KEY, vscodeChecksum(script));
-    return updated === null || updated === product
-      ? null
-      : { target: this.paths.product, content: updated };
-  }
-
-  private async commit(changes: FileChange[]): Promise<void> {
+    if (edit.product !== undefined) {
+      changes.push({ target: this.paths.product, content: edit.product });
+    }
     const denied = await applyChangesDirect(changes);
-    if (denied.length === 0) {
-      return;
+    if (denied.length > 0) {
+      const retry = l10n.t("Retry as Administrator");
+      const choice = await window.showWarningMessage(
+        l10n.t("UshiroE needs administrator rights to modify VS Code's installation folder."),
+        { modal: true, detail: denied.map((change) => change.target).join("\n") },
+        retry
+      );
+      if (choice !== retry) {
+        throw new CancelledError();
+      }
+      await applyChangesElevated(denied);
     }
-    const retry = l10n.t("Retry as Administrator");
-    const choice = await window.showWarningMessage(
-      l10n.t("UshiroE needs administrator rights to modify VS Code's installation folder."),
-      { modal: true, detail: denied.map((change) => change.target).join("\n") },
-      retry
-    );
-    if (choice !== retry) {
-      throw new CancelledError();
-    }
-    await applyChangesElevated(denied);
+    return edit.script !== undefined;
   }
 }

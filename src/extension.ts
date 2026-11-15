@@ -7,54 +7,62 @@ import {
   exportSettings,
   importSettings,
 } from "./commands";
-import { Controller } from "./controller";
 import { LiveStore } from "./liveStore";
+import { LiveSync } from "./liveSync";
+import { BackImageMigration } from "./migration/backimageFlow";
+import { PatchManager } from "./patchManager";
 import { Patcher } from "./patcher";
-import { readSettings, setEnabled, updateArea } from "./settings";
+import { SECTION, readSettings, setEnabled } from "./settings";
 import { PanelViewProvider } from "./ui/panelView";
 
 /** How often a visible window re-reads the live config, in milliseconds. */
 const POLL_INTERVAL = 1500;
 
-/** Points the first image added to an otherwise empty setup at the area that is currently shown. */
-async function assignIfUnset(ids: string[]): Promise<void> {
-  const settings = readSettings();
-  if (ids.length === 0) {
-    return;
-  }
-  if (settings.mode === "fullscreen" && settings.areas.fullscreen.source === null) {
-    await updateArea("fullscreen", { source: ids[0] });
-  }
+/** Internal handles returned from `activate`, used by the integration tests. */
+export interface UshiroeApi {
+  liveFile: string;
+  patcher: Patcher;
+  live: LiveSync;
 }
 
-export async function activate(context: ExtensionContext): Promise<void> {
-  const live = new LiveStore(context.globalStorageUri.fsPath);
+export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
+  const store = new LiveStore(context.globalStorageUri.fsPath);
   const patcher = new Patcher(Uri.joinPath(context.extensionUri, "dist", "runtime.js").fsPath, {
-    configUrl: live.url,
+    configUrl: store.url,
     pollInterval: POLL_INTERVAL,
   });
-  const controller = new Controller(context, patcher, live);
-  const panel = new PanelViewProvider(context.extensionUri, controller);
+  const patch = new PatchManager(context, patcher);
+  const live = new LiveSync(store);
+  const migration = new BackImageMigration(context, patch);
+  const panel = new PanelViewProvider(context.extensionUri, patch, live, migration);
 
+  let wasEnabled = readSettings().enabled;
   context.subscriptions.push(
-    controller,
+    patch,
+    live,
     panel,
     window.registerWebviewViewProvider(PanelViewProvider.viewId, panel),
-    workspace.onDidChangeConfiguration((event) => controller.onConfigurationChanged(event)),
+    workspace.onDidChangeConfiguration((event) => {
+      if (!event.affectsConfiguration(SECTION)) {
+        return;
+      }
+      live.schedule();
+      const enabled = readSettings().enabled;
+      if (enabled && !wasEnabled) {
+        void patch.ensure("enable");
+      }
+      wasEnabled = enabled;
+    }),
     commands.registerCommand("ushiroe.enable", () => setEnabled(true)),
     commands.registerCommand("ushiroe.disable", () => setEnabled(false)),
     commands.registerCommand("ushiroe.toggle", () => setEnabled(!readSettings().enabled)),
-    commands.registerCommand("ushiroe.nextImage", () => controller.nextImage()),
-    commands.registerCommand("ushiroe.addImageFile", async () =>
-      assignIfUnset(await addImageFiles())
-    ),
-    commands.registerCommand("ushiroe.addImageFolder", async () =>
-      assignIfUnset(await addImageFolder())
-    ),
-    commands.registerCommand("ushiroe.addImageUrl", async () => assignIfUnset(await addImageUrl())),
-    commands.registerCommand("ushiroe.repairPatch", () => controller.ensurePatch("manual")),
-    commands.registerCommand("ushiroe.removePatch", () => controller.removePatch()),
-    commands.registerCommand("ushiroe.importBackImage", () => controller.importBackImage()),
+    commands.registerCommand("ushiroe.nextImage", () => live.nextImage()),
+    commands.registerCommand("ushiroe.addImageFile", addImageFiles),
+    commands.registerCommand("ushiroe.addImageFolder", addImageFolder),
+    commands.registerCommand("ushiroe.addImageUrl", addImageUrl),
+    commands.registerCommand("ushiroe.repairPatch", () => patch.ensure("manual")),
+    commands.registerCommand("ushiroe.removePatch", () => patch.remove()),
+    commands.registerCommand("ushiroe.importBackImage", () => migration.import()),
     commands.registerCommand("ushiroe.exportSettings", exportSettings),
     commands.registerCommand("ushiroe.importSettings", importSettings),
     commands.registerCommand("ushiroe.openSettings", () =>
@@ -62,7 +70,14 @@ export async function activate(context: ExtensionContext): Promise<void> {
     )
   );
 
-  await controller.start();
+  await live.sync();
+  await patch.refresh();
+  if (wasEnabled) {
+    await patch.ensure("startup");
+  }
+  void migration.offer();
+
+  return { liveFile: store.file, patcher, live };
 }
 
 export function deactivate(): void {}

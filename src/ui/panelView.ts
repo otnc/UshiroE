@@ -22,7 +22,9 @@ import {
   type Mode,
 } from "../core/model";
 import { resolveSourceImages } from "../core/resolve";
-import type { Controller } from "../controller";
+import type { LiveSync } from "../liveSync";
+import type { BackImageMigration } from "../migration/backimageFlow";
+import type { PatchManager } from "../patchManager";
 import {
   removeSource,
   readSettings,
@@ -91,9 +93,14 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
 
   constructor(
     private readonly extensionUri: Uri,
-    private readonly controller: Controller
+    private readonly patch: PatchManager,
+    live: LiveSync,
+    private readonly migration: BackImageMigration
   ) {
-    this.subscriptions.push(controller.onDidChange(() => void this.postState()));
+    this.subscriptions.push(
+      patch.onDidChange(() => void this.postState()),
+      live.onDidChange(() => void this.postState())
+    );
   }
 
   resolveWebviewView(
@@ -192,7 +199,7 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
         return { ...source, count: images.length, thumbnail };
       })
     );
-    const { patch, restartPending } = this.controller.status;
+    const patch = this.patch.status;
     await view.webview.postMessage({
       type: "state",
       settings,
@@ -200,8 +207,8 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
       status: {
         patch: patch?.state ?? "unknown",
         hasBackImage: patch?.hasBackImage ?? false,
-        backImageInstalled: this.controller.backImageInstalled,
-        restartPending,
+        backImageInstalled: this.migration.installed,
+        restartPending: this.patch.restartPending,
       },
     });
   }

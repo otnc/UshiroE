@@ -8,6 +8,7 @@ import {
   type UshiroeSettings,
   defaultSettings,
 } from "../core/model";
+import { clamp, finiteNumber, isRecord, nonEmptyString } from "../core/guards";
 import { defaultSourceName } from "../core/normalize";
 
 export const BACKIMAGE_EXTENSION_ID = "ROBOTofficial.backimage";
@@ -29,16 +30,8 @@ const PART_NAMES: Record<string, PartId> = {
   "side-bar": "sidebar",
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function numberOr(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
 function clampOpacity(value: number): number {
-  return Math.min(1, Math.max(0, value));
+  return clamp(value, 0, 1);
 }
 
 /**
@@ -59,21 +52,19 @@ export function convertBackImageState(raw: unknown): UshiroeSettings | null {
   const intervals = isRecord(state.elementsInterval) ? state.elementsInterval : {};
   const lists = Array.isArray(state.imageLists) ? state.imageLists : [];
   for (const item of lists) {
-    if (!isRecord(item) || typeof item.path !== "string" || item.path === "") {
+    const itemPath = isRecord(item) ? nonEmptyString(item.path) : null;
+    if (!isRecord(item) || itemPath === null) {
       continue;
     }
-    const id = typeof item.id === "string" && item.id !== "" ? item.id : item.path;
+    const id = nonEmptyString(item.id) ?? itemPath;
     const source: ImageSource = {
       id,
-      name:
-        typeof item.name === "string" && item.name.trim() !== ""
-          ? item.name.trim()
-          : defaultSourceName(item.path),
+      name: nonEmptyString(item.name) ?? defaultSourceName(itemPath),
       type: item.type === "folder" ? "folder" : "file",
-      path: item.path,
+      path: itemPath,
       description: typeof item.description === "string" ? item.description : "",
       random: randoms[id] === true,
-      interval: Math.max(0, numberOr(intervals[id], DEFAULT_INTERVAL_SECONDS * 1000) / 1000),
+      interval: Math.max(0, finiteNumber(intervals[id], DEFAULT_INTERVAL_SECONDS * 1000) / 1000),
       recursive: false,
     };
     if (!settings.sources.some((existing) => existing.id === source.id)) {
@@ -91,15 +82,15 @@ export function convertBackImageState(raw: unknown): UshiroeSettings | null {
 
   if (isRecord(state.elementsOpacity)) {
     const opacity = state.elementsOpacity;
-    settings.areas.fullscreen.opacity = clampOpacity(1 - numberOr(opacity.fullscreen, 0.85));
+    settings.areas.fullscreen.opacity = clampOpacity(1 - finiteNumber(opacity.fullscreen, 0.85));
     settings.areas.editor.opacity = clampOpacity(
-      numberOr(opacity.editor, settings.areas.editor.opacity)
+      finiteNumber(opacity.editor, settings.areas.editor.opacity)
     );
     settings.areas.panel.opacity = clampOpacity(
-      numberOr(opacity.panel, settings.areas.panel.opacity)
+      finiteNumber(opacity.panel, settings.areas.panel.opacity)
     );
     settings.areas.sidebar.opacity = clampOpacity(
-      numberOr(opacity.sideBar, settings.areas.sidebar.opacity)
+      finiteNumber(opacity.sideBar, settings.areas.sidebar.opacity)
     );
   }
 

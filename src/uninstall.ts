@@ -5,21 +5,20 @@
  */
 import fs from "node:fs";
 
-import { replaceChecksum, stripUshiroe, vscodeChecksum } from "./workbench/patch";
-import { WORKBENCH_SCRIPT_KEY, appRootsFromExecPath, workbenchPaths } from "./workbench/paths";
+import { appRootsFromExecPath, workbenchPaths } from "./workbench/paths";
+import { planRemove } from "./workbench/plan";
 
 function cleanInstall(appRoot: string): void {
   const paths = workbenchPaths(appRoot);
-  const current = fs.readFileSync(paths.script, "utf8");
-  const restored = stripUshiroe(current);
-  if (restored === current) {
+  const script = fs.readFileSync(paths.script, "utf8");
+  const product = fs.existsSync(paths.product) ? fs.readFileSync(paths.product, "utf8") : null;
+  const edit = planRemove({ script, product });
+  if (edit.script === undefined) {
     return;
   }
-  fs.writeFileSync(paths.script, restored, "utf8");
-  const product = fs.readFileSync(paths.product, "utf8");
-  const updated = replaceChecksum(product, WORKBENCH_SCRIPT_KEY, vscodeChecksum(restored));
-  if (updated !== null && updated !== product) {
-    fs.writeFileSync(paths.product, updated, "utf8");
+  fs.writeFileSync(paths.script, edit.script, "utf8");
+  if (edit.product !== undefined) {
+    fs.writeFileSync(paths.product, edit.product, "utf8");
   }
 }
 

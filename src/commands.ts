@@ -11,7 +11,8 @@ import {
 } from "./core/model";
 import { defaultSourceName, normalizeSettings } from "./core/normalize";
 import { isAllowedRemoteUrl } from "./core/resolve";
-import { addSources, isPristine, readSettings, replaceSettings } from "./settings";
+import { addSources, readSettings, replaceSettings, updateArea } from "./settings";
+import { confirmReplaceSettings } from "./ui/prompts";
 
 const EXPORT_FORMAT = "ushiroe-settings";
 
@@ -36,49 +37,47 @@ function newSource(type: SourceType, path: string): ImageSource {
   };
 }
 
-/** Returns the ids of the added sources, or an empty list when the user cancelled. */
-export async function addImageFiles(): Promise<string[]> {
+/** Adds sources and shows the first one right away when the full window has no image yet. */
+async function addAndShow(sources: ImageSource[]): Promise<void> {
+  if (sources.length === 0) {
+    return;
+  }
+  await addSources(sources);
+  const settings = readSettings();
+  if (settings.mode === "fullscreen" && settings.areas.fullscreen.source === null) {
+    await updateArea("fullscreen", { source: sources[0].id });
+  }
+}
+
+export async function addImageFiles(): Promise<void> {
   const files = await window.showOpenDialog({
     canSelectMany: true,
     openLabel: l10n.t("Add Images"),
     filters: { [l10n.t("Images")]: IMAGE_EXTENSIONS.map((extension) => extension.slice(1)) },
   });
-  if (!files?.length) {
-    return [];
-  }
-  const sources = files.map((file) => newSource("file", file.fsPath));
-  await addSources(sources);
-  return sources.map((source) => source.id);
+  await addAndShow((files ?? []).map((file) => newSource("file", file.fsPath)));
 }
 
-export async function addImageFolder(): Promise<string[]> {
+export async function addImageFolder(): Promise<void> {
   const folders = await window.showOpenDialog({
     canSelectFiles: false,
     canSelectFolders: true,
     canSelectMany: true,
     openLabel: l10n.t("Add Folder"),
   });
-  if (!folders?.length) {
-    return [];
-  }
-  const sources = folders.map((folder) => newSource("folder", folder.fsPath));
-  await addSources(sources);
-  return sources.map((source) => source.id);
+  await addAndShow((folders ?? []).map((folder) => newSource("folder", folder.fsPath)));
 }
 
-export async function addImageUrl(): Promise<string[]> {
+export async function addImageUrl(): Promise<void> {
   const url = await window.showInputBox({
     prompt: l10n.t("Image URL (https only)"),
     placeHolder: "https://example.com/wallpaper.png",
     validateInput: (value) =>
       isAllowedRemoteUrl(value.trim()) ? undefined : l10n.t("Enter an https:// URL."),
   });
-  if (!url) {
-    return [];
+  if (url) {
+    await addAndShow([newSource("url", url.trim())]);
   }
-  const source = newSource("url", url.trim());
-  await addSources([source]);
-  return [source.id];
 }
 
 export async function exportSettings(): Promise<void> {
@@ -117,16 +116,8 @@ export async function importSettings(): Promise<void> {
     void window.showErrorMessage(l10n.t("This file is not a UshiroE settings export."));
     return;
   }
-  if (!isPristine()) {
-    const replace = l10n.t("Replace");
-    const choice = await window.showWarningMessage(
-      l10n.t("Replace the current UshiroE settings?"),
-      { modal: true },
-      replace
-    );
-    if (choice !== replace) {
-      return;
-    }
+  if (!(await confirmReplaceSettings(l10n.t("Replace the current UshiroE settings?")))) {
+    return;
   }
   await replaceSettings(normalizeSettings(record.settings as Record<string, unknown>));
   void window.showInformationMessage(l10n.t("UshiroE settings were imported."));

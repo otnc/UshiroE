@@ -14,37 +14,17 @@ import {
   type UshiroeSettings,
   defaultSettings,
 } from "./model";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function finiteNumber(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function oneOf<T extends string>(list: readonly T[], value: unknown, fallback: T): T {
-  return list.includes(value as T) ? (value as T) : fallback;
-}
+import { clamp, finiteNumber, isRecord, nonEmptyString, oneOf } from "./guards";
 
 export function normalizeSource(raw: unknown): ImageSource | null {
-  if (!isRecord(raw) || typeof raw.path !== "string" || raw.path.trim() === "") {
+  const path = isRecord(raw) ? nonEmptyString(raw.path) : null;
+  if (!isRecord(raw) || path === null) {
     return null;
   }
-  const type = oneOf<SourceType>(SOURCE_TYPES, raw.type, "file");
-  const path = raw.path.trim();
-  const id = typeof raw.id === "string" && raw.id !== "" ? raw.id : path;
   return {
-    id,
-    name:
-      typeof raw.name === "string" && raw.name.trim() !== ""
-        ? raw.name.trim()
-        : defaultSourceName(path),
-    type,
+    id: nonEmptyString(raw.id) ?? path,
+    name: nonEmptyString(raw.name) ?? defaultSourceName(path),
+    type: oneOf<SourceType>(SOURCE_TYPES, raw.type, "file"),
     path,
     description: typeof raw.description === "string" ? raw.description.trim() : "",
     random: raw.random === true,
@@ -87,13 +67,10 @@ export function normalizeArea(id: AreaId, raw: unknown): AreaSettings {
         : typeof raw.enabled === "boolean"
           ? raw.enabled
           : fallback.enabled,
-    source: typeof raw.source === "string" && raw.source !== "" ? raw.source : null,
+    source: nonEmptyString(raw.source),
     opacity: clamp(finiteNumber(raw.opacity, fallback.opacity), 0, 1),
     size: oneOf<Size>(SIZES, raw.size, fallback.size),
-    position:
-      typeof raw.position === "string" && raw.position.trim() !== ""
-        ? raw.position.trim()
-        : fallback.position,
+    position: nonEmptyString(raw.position) ?? fallback.position,
     blur: clamp(finiteNumber(raw.blur, fallback.blur), 0, 200),
   };
 }

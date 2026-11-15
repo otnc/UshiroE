@@ -27,6 +27,19 @@ export function readSettings(): UshiroeSettings {
   });
 }
 
+export interface PatchOptions {
+  hideCorruptWarning: boolean;
+  autoRepair: boolean;
+}
+
+export function readPatchOptions(): PatchOptions {
+  const current = config();
+  return {
+    hideCorruptWarning: current.get<boolean>("patch.hideCorruptWarning", true),
+    autoRepair: current.get<boolean>("patch.autoRepair", true),
+  };
+}
+
 /** Settings live in user settings only; the patch they drive is shared by every window. */
 async function write(key: string, value: unknown): Promise<void> {
   await config().update(key, value, ConfigurationTarget.Global);
