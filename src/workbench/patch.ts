@@ -9,8 +9,7 @@ const END_MARKER = "/* ushiroe:end */";
 const USHIROE_BLOCK = /\n?\/\* ushiroe:begin [0-9a-f]+ \*\/\n[\s\S]*?\n\/\* ushiroe:end \*\//g;
 
 /**
- * BackImage appends `\n//backimage.<version>-<sha256>\n<patch>\n//END.backimage.<version>`
- * to the workbench script.
+ * BackImage appends `\n//backimage.<version>-<sha256>\n<patch>\n//END.backimage.<version>` to the workbench script.
  */
 const BACKIMAGE_BLOCK =
   /\n\/\/backimage\.[0-9A-Za-z.-]+\n[\s\S]*?\n\/\/END\.backimage\.[0-9A-Za-z.-]+/g;
@@ -108,8 +107,7 @@ export function readChecksum(productJson: string, key: string): string | null {
 }
 
 /**
- * Throws unless `next` differs from `previous` only in the value of one checksum entry, so a
- * bug can never rewrite anything else in `product.json`.
+ * Throws unless `next` differs from `previous` only in the value of one checksum entry, so a bug can never rewrite anything else in `product.json`.
  */
 export function assertOnlyChecksumChanged(previous: string, next: string, key: string): void {
   const pattern = checksumPattern(key);

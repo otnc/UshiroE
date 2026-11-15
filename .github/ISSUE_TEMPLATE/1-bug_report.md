@@ -19,7 +19,7 @@ labels: bug
 
 ## Settings (if relevant)
 
-<!-- The ushiroe.* part of settings.json, trimmed to the minimum. -->
+<!-- Include only the ushiroe.* settings needed to reproduce the issue. -->
 
 ## Environment
 

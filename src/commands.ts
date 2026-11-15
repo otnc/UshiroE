@@ -82,7 +82,7 @@ export async function addImageFolder(): Promise<void> {
   if (nested.some(Boolean)) {
     const include = l10n.t("Include Subfolders");
     const choice = await window.showQuickPick([include, l10n.t("Only This Folder")], {
-      placeHolder: l10n.t("The folder has images in subfolders too. Copy them as well?"),
+      placeHolder: l10n.t("Include images from subfolders?"),
     });
     if (choice === undefined) {
       return;
@@ -108,14 +108,12 @@ export async function addImageUrl(library: LibraryManager): Promise<void> {
     [
       {
         label: l10n.t("Download once"),
-        detail: l10n.t("Keep a copy in the UshiroE folder. Use Download Again to update it."),
+        detail: l10n.t("Save a local copy. Use Download Again to refresh it."),
         value: "never" as const,
       },
       {
         label: l10n.t("Download at every startup"),
-        detail: l10n.t(
-          "Fetch the image again each time VS Code starts, so changes at the URL show up."
-        ),
+        detail: l10n.t("Download a fresh copy whenever VS Code starts."),
         value: "startup" as const,
       },
     ],
@@ -165,7 +163,7 @@ export async function importSettings(): Promise<void> {
     typeof record.settings !== "object" ||
     record.settings === null
   ) {
-    void window.showErrorMessage(l10n.t("This file is not a UshiroE settings export."));
+    void window.showErrorMessage(l10n.t("This file does not contain exported UshiroE settings."));
     return;
   }
   if (!(await confirmReplaceSettings(l10n.t("Replace the current UshiroE settings?")))) {

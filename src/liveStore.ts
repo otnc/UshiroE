@@ -5,8 +5,7 @@ import type { LiveConfig } from "./core/live";
 import { toWorkbenchUrl } from "./core/files";
 
 /**
- * Stores the live config in the extension's global storage folder. VS Code's `vscode-file:`
- * protocol serves the default profile's global storage folder, so the workbench can fetch it.
+ * Stores the live config in the extension's global storage folder. VS Code's `vscode-file:` protocol serves the default profile's global storage folder, so the workbench can fetch it.
  */
 export class LiveStore {
   readonly file: string;
@@ -20,7 +19,7 @@ export class LiveStore {
     return toWorkbenchUrl(this.file);
   }
 
-  /** Writes atomically so a polling window never reads half a file. */
+  /** Uses an atomic rename when possible so polling windows can read a complete JSON file. */
   async write(config: LiveConfig): Promise<void> {
     const text = JSON.stringify(config);
     if (text === this.lastWritten) {

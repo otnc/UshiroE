@@ -1,10 +1,7 @@
 /**
- * Restores VS Code's workbench files. VS Code runs this as the `vscode:uninstall` hook, with its
- * own executable in Node mode and without the `vscode` API. It also works by hand:
- *
- *   node <extension folder>/dist/uninstall.js [<VS Code install folder>]
- *
- * Without a folder it tries the running executable's install and the usual install locations.
+ * The `vscode:uninstall` hook restores the workbench. VS Code runs it in Node mode without the `vscode` API.
+ * To run it manually: `node <extension folder>/dist/uninstall.js [<VS Code install folder>]`.
+ * Without an argument, the script checks the running executable's installation and the default installation paths.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -45,7 +42,9 @@ function stateDirFor(appRoot: string): string {
 async function main(): Promise<number> {
   const roots = findAppRoots(process.argv.slice(2));
   if (roots.length === 0) {
-    console.log("[UshiroE] No VS Code installation found. Pass its install folder as an argument.");
+    console.log(
+      "[UshiroE] No VS Code installation found. Pass the VS Code installation folder as an argument."
+    );
     return 1;
   }
   let failed = false;
@@ -63,11 +62,15 @@ async function main(): Promise<number> {
     } catch (error) {
       failed = true;
       if (error instanceof IntegrityError) {
-        console.log(`[UshiroE] ${appRoot}: ${error.message} Reinstalling VS Code restores it.`);
+        console.log(`[UshiroE] ${appRoot}: ${error.message}`);
       } else if (error instanceof LockedError) {
-        console.log(`[UshiroE] ${appRoot}: ${error.message} Close VS Code and run this again.`);
+        console.log(
+          `[UshiroE] ${appRoot}: ${error.message} Quit VS Code and rerun the recovery script.`
+        );
       } else if (error instanceof PermissionError) {
-        console.log(`[UshiroE] ${appRoot}: no permission. Run this again as administrator.`);
+        console.log(
+          `[UshiroE] ${appRoot}: Permission denied. Rerun the recovery script as an administrator.`
+        );
       } else {
         console.log(`[UshiroE] ${appRoot}: ${error instanceof Error ? error.message : error}`);
       }

@@ -15,9 +15,7 @@ export function parseXdgPictures(contents: string, home: string): string | null 
 }
 
 /**
- * Asks Windows for the Pictures folder, which follows redirections such as OneDrive. The
- * output is forced to UTF-8, because console output in the OEM code page would garble
- * non-ASCII folder names such as Japanese user names.
+ * Asks Windows for the Pictures folder, which follows redirections such as OneDrive. The output is forced to UTF-8, because console output in the OEM code page would garble non-ASCII folder names such as Japanese user names.
  */
 function windowsPictures(): string | null {
   try {

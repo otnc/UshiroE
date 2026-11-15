@@ -1,7 +1,5 @@
 /**
- * Startup repair bookkeeping. UshiroE re-applies a lost patch at most once per VS Code commit:
- * a VS Code update legitimately removes it once, but losing it again means something else keeps
- * overwriting the workbench, and repairing again would start a loop.
+ * Startup repair bookkeeping. UshiroE re-applies a lost patch at most once per VS Code commit: a VS Code update legitimately removes it once, but losing it again means something else keeps overwriting the workbench, and repairing again would start a loop.
  */
 export interface RepairRecord {
   commit: string;

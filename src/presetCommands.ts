@@ -9,7 +9,7 @@ export async function newPreset(): Promise<void> {
   const presets = readSettings().presets;
   const name = (
     await window.showInputBox({
-      prompt: l10n.t("Name of the new preset"),
+      prompt: l10n.t("Name the new preset"),
       value: l10n.t("Preset {0}", presets.length + 1),
       validateInput: (value) => (value.trim() === "" ? l10n.t("Enter a name.") : undefined),
     })
@@ -18,14 +18,13 @@ export async function newPreset(): Promise<void> {
     return;
   }
   await setPresets([...presets, createPreset(name)]);
-  // Show the view, where the new preset is waiting for its images.
   await commands.executeCommand("ushiroe.panel.focus");
 }
 
 async function pickPreset(placeHolder: string): Promise<Preset | undefined> {
   const presets = readSettings().presets;
   if (presets.length === 0) {
-    void window.showInformationMessage(l10n.t("There are no presets yet."));
+    void window.showInformationMessage(l10n.t("No presets yet."));
     return undefined;
   }
   const item = await window.showQuickPick(
@@ -39,13 +38,13 @@ async function pickPreset(placeHolder: string): Promise<Preset | undefined> {
 export async function deletePreset(id?: unknown): Promise<void> {
   const preset =
     readSettings().presets.find((candidate) => candidate.id === id) ??
-    (await pickPreset(l10n.t("Delete which preset?")));
+    (await pickPreset(l10n.t("Select a preset to delete")));
   if (!preset) {
     return;
   }
   const remove = l10n.t("Delete");
   const choice = await window.showWarningMessage(
-    l10n.t('Delete the preset "{0}"? The images themselves are kept.', preset.name),
+    l10n.t('Delete the preset "{0}"? This keeps the image files.', preset.name),
     { modal: true },
     remove
   );

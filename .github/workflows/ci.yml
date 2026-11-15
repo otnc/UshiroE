@@ -23,7 +23,7 @@ jobs:
       - run: npm run lint
       - run: npm run check-types
       - run: npm test
-      # Generated READMEs must match their base file and have every translation in place
+      # Verify generated documentation and translations.
       - run: npx kiritan verify
       - run: npm run docs:check
 

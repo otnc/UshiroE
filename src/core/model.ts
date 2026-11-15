@@ -33,11 +33,11 @@ export const PRESET_PREFIX = "preset:";
 
 export const DEFAULT_INTERVAL_SECONDS = 10;
 
-/** How a set of images takes turns: shared by sources, presets and All images. */
+/** Image rotation settings shared by sources, presets, and the All images option. */
 export interface Rotation {
   /** Pick the next image at random instead of in order. */
   random: boolean;
-  /** Seconds between images; 0 keeps showing the same image. */
+  /** Seconds between images; 0 disables timed rotation. */
   interval: number;
   /** Change the image only when VS Code starts, never while it runs. */
   changeOnStartupOnly: boolean;
@@ -69,8 +69,7 @@ export interface AreaSettings {
 }
 
 /**
- * A named, ordered list of images picked from the sources. Each image is referenced as
- * `<source id>/<file name>` in the image folder.
+ * A named, ordered list of images picked from the sources. Each image is referenced as `<source id>/<file name>` in the image folder.
  */
 export interface Preset extends Rotation {
   id: string;
@@ -83,9 +82,9 @@ export interface UshiroeSettings {
   mode: Mode;
   sources: ImageSource[];
   areas: Record<AreaId, AreaSettings>;
-  /** Seconds the cross-fade between rotating images takes. */
+  /** Crossfade duration in seconds. */
   transition: number;
-  /** How images take turns when an area shows {@link ALL_SOURCES}. */
+  /** Rotation settings for {@link ALL_SOURCES}. */
   allImages: Rotation;
   presets: Preset[];
 }

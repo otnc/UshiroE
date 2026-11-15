@@ -1,8 +1,6 @@
 // Generates the marketplace icon and the activity bar icon as pixel art with dfh.
 // Run with `npm run icons`.
-//
-// Motif: a Japanese landscape (red sun, Mt. Fuji, waves) seen through a translucent editor
-// window, i.e. a picture behind the code, which is what "Ushiro-e" means.
+// A translucent editor window overlays a landscape with a red sun, Mt. Fuji, and waves.
 import { Canvas } from "dfh";
 
 const SIZE = 32;

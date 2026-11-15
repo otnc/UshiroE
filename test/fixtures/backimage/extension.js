@@ -1,6 +1,4 @@
-// Test double for BackImage 1.1.6 (ROBOTofficial.backimage): on every activation it saves
-// backups when they are missing and otherwise restores the workbench from them, with plain
-// non-atomic writes, which is what made it fight with UshiroE.
+// Test double for BackImage 1.1.6 (ROBOTofficial.backimage): on every activation it saves backups when they are missing and otherwise restores the workbench from them, with plain non-atomic writes, which is what made it fight with UshiroE.
 const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");

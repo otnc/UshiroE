@@ -1,7 +1,7 @@
 import { l10n } from "vscode";
 
 /** Every string the panel webview shows, translated by the extension host. */
-export function strings() {
+export const panelStrings = () => {
   return {
     enabled: l10n.t("Background on"),
     disabled: l10n.t("Background off"),
@@ -12,12 +12,12 @@ export function strings() {
     patchOutdated: l10n.t("Patch outdated"),
     patchMissing: l10n.t("Patch not installed"),
     patchUnknown: l10n.t("Patch status unknown"),
-    restartPending: l10n.t("Restart VS Code (quit and open it again) to apply the change."),
+    restartPending: l10n.t("Quit and reopen VS Code to apply the change."),
     quit: l10n.t("Quit VS Code"),
     repair: l10n.t("Repair Patch"),
     removePatch: l10n.t("Remove Patch"),
     backImageConflict: l10n.t(
-      "BackImage is active and changes the same VS Code files. UshiroE changes nothing until BackImage is uninstalled or disabled."
+      "BackImage is active and modifies the same VS Code files. Uninstall or disable BackImage before applying the UshiroE patch."
     ),
     uninstallBackImage: l10n.t("Uninstall BackImage"),
     disableBackImage: l10n.t("Disable BackImage"),
@@ -25,12 +25,10 @@ export function strings() {
     backImageManaging: l10n.t(
       "BackImage is managing the background. UshiroE does not change VS Code's files while it is active."
     ),
-    letUshiroeManage: l10n.t("Let UshiroE Manage It"),
-    priorityIgnored: l10n.t(
-      "BackImage is set to manage the background, but it is not running, so UshiroE does."
-    ),
+    letUshiroeManage: l10n.t("Let UshiroE Manage the Background"),
+    priorityIgnored: l10n.t("UshiroE is managing the background because BackImage is inactive."),
     waitingForRestart: l10n.t(
-      "Restart VS Code so that BackImage stops running. UshiroE applies its patch after the restart."
+      "Quit and reopen VS Code to unload BackImage. UshiroE applies its patch after the restart."
     ),
     problemTruncated: l10n.t(
       "VS Code's workbench file looks truncated or damaged. UshiroE will not change it. Restore it, or reinstall VS Code."
@@ -42,7 +40,7 @@ export function strings() {
     importBackImage: l10n.t("Import from BackImage"),
     mode: l10n.t("Mode"),
     modeFullscreen: l10n.t("Full window"),
-    modeParts: l10n.t("Per part"),
+    modeParts: l10n.t("Per area"),
     area_fullscreen: l10n.t("Full window"),
     area_editor: l10n.t("Editor"),
     area_sidebar: l10n.t("Primary Side Bar"),
@@ -51,12 +49,12 @@ export function strings() {
     image: l10n.t("Image"),
     noImage: l10n.t("None"),
     opacity: l10n.t("Image opacity"),
-    size: l10n.t("Fit"),
-    size_cover: l10n.t("Cover"),
-    size_contain: l10n.t("Contain"),
-    size_auto: l10n.t("Original size"),
-    size_stretch: l10n.t("Stretch"),
-    size_tile: l10n.t("Tile"),
+    fit: l10n.t("Fit"),
+    fit_cover: l10n.t("Cover"),
+    fit_contain: l10n.t("Contain"),
+    fit_auto: l10n.t("Original size"),
+    fit_stretch: l10n.t("Stretch"),
+    fit_tile: l10n.t("Tile"),
     position: l10n.t("Position"),
     blur: l10n.t("Blur (px)"),
     sources: l10n.t("Images"),
@@ -80,38 +78,39 @@ export function strings() {
     downloadAgain: l10n.t("Download Again"),
     library: l10n.t("Image folder"),
     libraryHint: l10n.t(
-      "UshiroE shows the images in this folder. Each source has its own subfolder, and images you put there yourself are shown too."
+      "UshiroE reads images from each source's subfolder. You can add your own files there too."
     ),
     openLibrary: l10n.t("Open"),
     chooseLibrary: l10n.t("Change"),
     resetLibrary: l10n.t("Use Default"),
-    refreshImages: l10n.t("Download URLs Again"),
+    refreshImages: l10n.t("Download URL Images Again"),
     presets: l10n.t("Presets"),
     presetsHint: l10n.t(
-      "A preset is your own list of images, played from top to bottom or at random. Choose it as an area's Image to show it."
+      "A preset is an ordered list of images. Select it under Image to use it as the background for an area."
     ),
     noPresets: l10n.t("No presets yet."),
     newPreset: l10n.t("New Preset"),
     deletePreset: l10n.t("Delete Preset"),
-    noPresetImages: l10n.t("No images yet. Open Add Images below and click images to add them."),
+    noPresetImages: l10n.t("No images yet. Use Add Images to choose images for this preset."),
     addToPreset: l10n.t("Add Images"),
     addToPresetHint: l10n.t("Click an image to add it to the end of the preset."),
-    addImageNumber: l10n.t("Add image {1} of {0}"),
+    addImageNumber: l10n.t("Add image {1} from {0}"),
     allImagesHint: l10n.t(
-      "Shows the images of every source, in the order of the Images list above: the sources from top to bottom, and the images inside each source in their order."
+      "Follows the source order in Images, then the image order within each source."
     ),
     imageOrder: l10n.t("Image order"),
     imageNumber: l10n.t("Image {0}"),
     moveUp: l10n.t("Move Up"),
     moveDown: l10n.t("Move Down"),
-    removeImage: l10n.t("Remove Image"),
+    deleteImageFile: l10n.t("Delete Image File"),
+    removeFromPreset: l10n.t("Remove from Preset"),
     name: l10n.t("Name"),
     order: l10n.t("Order"),
     order_sequential: l10n.t("From top to bottom"),
     order_random: l10n.t("Random"),
-    interval: l10n.t("Change every (seconds, 0 = never)"),
-    changeOnStartupOnly: l10n.t("Change only when VS Code starts"),
-    remove: l10n.t("Remove"),
+    interval: l10n.t("Switch interval (seconds; 0 disables the timer)"),
+    changeOnStartupOnly: l10n.t("Switch only at VS Code startup"),
+    removeSource: l10n.t("Remove Image Source"),
     details: l10n.t("Details"),
     transfer: l10n.t("Import and export"),
     importSettings: l10n.t("Import Settings"),
@@ -127,6 +126,6 @@ export function strings() {
     position_bottomRight: l10n.t("Bottom right"),
     position_custom: l10n.t("Custom ({0})"),
   };
-}
+};
 
-export type Strings = ReturnType<typeof strings>;
+export type Strings = ReturnType<typeof panelStrings>;

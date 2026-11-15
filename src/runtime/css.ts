@@ -3,8 +3,7 @@ import type { AreaId, Size } from "../core/model";
 
 /**
  * Parts use `::before` because VS Code itself draws the editor shadow with `.part.editor::after`.
- * The parent `.split-view-view` is absolutely positioned and has the same box as the part,
- * so `inset: 0` covers exactly the part.
+ * The parent `.split-view-view` is absolutely positioned and has the same box as the part, so `inset: 0` covers exactly the part.
  */
 const AREA_SELECTORS: Record<AreaId, string> = {
   fullscreen: "body::after",
@@ -40,10 +39,7 @@ export function cssUrl(url: string): string {
 export const TITLEBAR_HEIGHT_VARIABLE = "--ushiroe-titlebar-height";
 
 /**
- * Where the layer sits. The fullscreen layer starts below the title bar, so the menu bar stays
- * clear. Blur pulls transparent pixels in from outside the box: the fullscreen layer bleeds past
- * the window edges to hide that soft edge and is clipped back at the title bar; a part layer
- * cannot bleed, because it would cover its neighbours.
+ * Where the layer sits. The fullscreen layer starts below the title bar, so the menu bar stays clear. Blur pulls transparent pixels in from outside the box: the fullscreen layer bleeds past the window edges to hide that soft edge and is clipped back at the title bar; a part layer cannot bleed, because it would cover its neighbours.
  */
 function placement(area: LiveArea): string {
   if (area.id !== "fullscreen") {

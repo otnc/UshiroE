@@ -46,8 +46,7 @@ async function isStale(lockPath: string, now: number): Promise<boolean> {
 }
 
 /**
- * Takes the lock, or returns null when another live process holds it. A stale lock is taken
- * over. Call the returned function to release it.
+ * Takes the lock, or returns null when another live process holds it. A stale lock is taken over. Call the returned function to release it.
  */
 export async function tryAcquireLock(
   lockPath: string,

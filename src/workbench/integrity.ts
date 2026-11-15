@@ -27,8 +27,7 @@ export type IntegrityResult =
 
 /**
  * Decides whether a workbench script is a known-good base that UshiroE may patch or restore.
- * Patching anything else could stack on a truncated or foreign-modified file, and hiding the
- * checksum would then hide real corruption.
+ * A checksum update must not hide a truncated file or changes made by another extension.
  */
 export function checkIntegrity(input: IntegrityInput): IntegrityResult {
   const base = stripBackImage(stripUshiroe(input.script));

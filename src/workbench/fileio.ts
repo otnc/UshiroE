@@ -73,8 +73,7 @@ async function renameWithRetry(from: string, to: string): Promise<void> {
 }
 
 /**
- * Replaces a file atomically: the content goes to a temp file in the same folder, is flushed to
- * disk, then renamed over the target. Readers see the old file or the new one, never a part.
+ * Replaces a file atomically: the content goes to a temp file in the same folder, is flushed to disk, then renamed over the target. Readers see the old file or the new one, never a part.
  */
 export async function writeFileAtomic(target: string, content: Buffer): Promise<void> {
   const temp = tempPathFor(target);
@@ -125,8 +124,7 @@ async function matches(change: FileChange): Promise<boolean> {
 
 /**
  * Applies the changes in order as one unit: each file is written atomically and read back.
- * When a write fails, a check fails or the user declines elevation, every file already changed
- * gets its previous content back and the error is rethrown.
+ * When a write fails, a check fails or the user declines elevation, every file already changed gets its previous content back and the error is rethrown.
  */
 export async function applyChanges(
   changes: FileChange[],
@@ -202,9 +200,7 @@ function sudoExec(command: string): Promise<void> {
 }
 
 /**
- * Elevated writes with one administrator prompt. Content is staged in the temp folder, copied
- * next to the target under a temp name, then moved over the target, so the target is replaced
- * in one step and keeps no half-written state.
+ * Elevated writes with one administrator prompt. Content is staged in the temp folder, copied next to the target under a temp name, then moved over the target, so the target is replaced in one step and keeps no half-written state.
  */
 export async function writeElevated(changes: FileChange[]): Promise<void> {
   if (changes.length === 0) {

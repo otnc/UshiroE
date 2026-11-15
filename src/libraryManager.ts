@@ -30,9 +30,7 @@ interface SyncOptions {
 }
 
 /**
- * Keeps the image library in `<Pictures>/UshiroE/` in step with the configured sources. Sources
- * are imported once and not linked to their originals afterwards; only the library folder
- * itself is watched, so images the user drops into it show up.
+ * Keeps the image library in `<Pictures>/UshiroE/` in step with the configured sources. Sources are imported once and not linked to their originals afterwards; only the library folder itself is watched, so images the user drops into it show up.
  */
 export class LibraryManager implements Disposable {
   /** `<Pictures>/UshiroE`, looked up once because it may spawn a process on Windows. */
@@ -55,7 +53,6 @@ export class LibraryManager implements Disposable {
     return this.defaultRootCache;
   }
 
-  /** The library in the folder the user chose, or in the default folder. */
   get library(): ImageLibrary {
     const root = readLibraryFolder() ?? this.defaultRoot;
     if (this.current?.root !== root) {
@@ -97,7 +94,7 @@ export class LibraryManager implements Disposable {
       {
         modal: true,
         detail: l10n.t(
-          "The copy in the image folder is deleted. An image you put into the folder yourself is deleted for good."
+          "This deletes the file from the image folder, including images you placed there yourself."
         ),
       },
       remove
@@ -140,7 +137,7 @@ export class LibraryManager implements Disposable {
             try {
               await this.library.sync(source, options.refreshUrls(source));
             } catch (error) {
-              // A failed refresh is fine as long as earlier images are still there.
+              // Keep using the cached images if a refresh fails.
               if (options.visible || this.library.images(source).length === 0) {
                 const reason = error instanceof Error ? error.message : String(error);
                 failures.push(`${source.name}: ${reason}`);
@@ -245,8 +242,7 @@ export class LibraryManager implements Disposable {
   }
 
   /**
-   * Lets the user pick another library folder. Sources are imported again into the new folder
-   * by the settings change that follows; the old folder is left as it is.
+   * Lets the user pick another library folder. Sources are imported again into the new folder by the settings change that follows; the old folder is left as it is.
    */
   async chooseFolder(): Promise<void> {
     const picked = await window.showOpenDialog({
@@ -255,7 +251,7 @@ export class LibraryManager implements Disposable {
       canSelectMany: false,
       defaultUri: Uri.file(this.root),
       openLabel: l10n.t("Use This Folder"),
-      title: l10n.t("Choose the folder UshiroE copies images into"),
+      title: l10n.t("Choose an image folder for UshiroE"),
     });
     if (picked?.length) {
       await setLibraryFolder(picked[0].fsPath);
@@ -264,9 +260,7 @@ export class LibraryManager implements Disposable {
 
   async resetFolder(): Promise<void> {
     await setLibraryFolder(undefined);
-    void window.showInformationMessage(
-      l10n.t("UshiroE copies images into {0} again.", this.defaultRoot)
-    );
+    void window.showInformationMessage(l10n.t("The image folder is now {0}.", this.defaultRoot));
   }
 
   /** Watches the library folder, so images added to or removed from it by hand show up. */

@@ -39,7 +39,7 @@ import {
   updatePreset,
   updateSource,
 } from "../settings";
-import { strings } from "./strings";
+import { panelStrings } from "./strings";
 
 type IncomingMessage =
   | { type: "ready" }
@@ -305,7 +305,7 @@ export class PanelViewProvider implements WebviewViewProvider, Disposable {
       `font-src ${webview.cspSource}`,
       `script-src 'nonce-${nonce}'`,
     ].join("; ");
-    const locale = JSON.stringify(strings()).replace(/</g, "\\u003c");
+    const locale = JSON.stringify(panelStrings()).replace(/</g, "\\u003c");
     return `<!DOCTYPE html>
 <html lang="${env.language}">
 <head>

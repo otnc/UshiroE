@@ -51,9 +51,7 @@ function pickNextIndex(state: AreaState): number {
 }
 
 /**
- * Keeps {@link TITLEBAR_HEIGHT_VARIABLE} equal to the bottom edge of the custom title bar, or 0
- * when VS Code uses the native one. The title bar is created after this script runs and can be
- * rebuilt when the layout changes, so it is looked up again periodically.
+ * Keeps {@link TITLEBAR_HEIGHT_VARIABLE} equal to the bottom edge of the custom title bar, or 0 when VS Code uses the native one. The title bar is created after this script runs and can be rebuilt when the layout changes, so it is looked up again periodically.
  */
 function trackTitlebar(root: HTMLElement): void {
   let observed: Element | null = null;

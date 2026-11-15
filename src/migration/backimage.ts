@@ -36,10 +36,8 @@ function clampOpacity(value: number): number {
 
 /**
  * Converts BackImage's stored state to UshiroE settings.
- *
- * BackImage's fullscreen opacity is the opacity of the whole UI drawn over the image, while
- * UshiroE stores how visible the image is, so that value is inverted. Part opacities already
- * describe the image. Intervals move from milliseconds to seconds.
+ * BackImage stores UI opacity in full-window mode and image opacity in other areas. Only the full-window value is inverted.
+ * Rotation intervals are converted from milliseconds to seconds.
  */
 export function convertBackImageState(raw: unknown): UshiroeSettings | null {
   if (!isRecord(raw)) {
@@ -120,8 +118,7 @@ export interface StateDatabase {
 }
 
 /**
- * `state.vscdb` files that can hold BackImage's state: the default profile's and every
- * custom profile's. `globalStorageDir` is `<user data>/User/globalStorage`.
+ * `state.vscdb` files that can hold BackImage's state: the default profile's and every custom profile's. `globalStorageDir` is `<user data>/User/globalStorage`.
  */
 export function findStateDatabases(globalStorageDir: string): StateDatabase[] {
   const result: StateDatabase[] = [];
@@ -144,8 +141,7 @@ export function findStateDatabases(globalStorageDir: string): StateDatabase[] {
 }
 
 /**
- * Reads BackImage's JSON state from a VS Code state database. The file is read into memory
- * first, so the database VS Code keeps open is never locked or modified.
+ * Reads BackImage's JSON state from a VS Code state database. The file is read into memory first, so the database VS Code keeps open is never locked or modified.
  */
 export async function readBackImageState(
   databaseFile: string,

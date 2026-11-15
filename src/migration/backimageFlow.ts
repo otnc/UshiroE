@@ -84,9 +84,7 @@ export class BackImageMigration {
         entry,
       })),
       {
-        placeHolder: l10n.t(
-          "BackImage settings exist in several profiles. Which one should be imported?"
-        ),
+        placeHolder: l10n.t("Which profile should UshiroE import BackImage settings from?"),
       }
     );
     return item?.entry;
@@ -140,8 +138,7 @@ export class BackImageMigration {
   }
 
   /**
-   * Uninstalls BackImage. Its code stays loaded until VS Code restarts, so UshiroE changes
-   * nothing now and applies its patch on the next start, after asking to delete the leftovers.
+   * Uninstalls BackImage. Its code stays loaded until VS Code restarts, so UshiroE changes nothing now and applies its patch on the next start, after asking to delete the leftovers.
    */
   async uninstall(): Promise<void> {
     try {
@@ -170,7 +167,7 @@ export class BackImageMigration {
     await this.context.globalState.update(PATCH_AFTER_RESTART_KEY, true);
     await promptRestart(
       l10n.t(
-        "Restart VS Code so that BackImage stops running. UshiroE applies its patch after the restart."
+        "Quit and reopen VS Code to unload BackImage. UshiroE applies its patch after the restart."
       )
     );
   }

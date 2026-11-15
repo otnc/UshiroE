@@ -58,7 +58,7 @@ const openDetails = new Set<string>(vscode.getState()?.open ?? []);
 let state: State | undefined;
 
 const PART_ORDER: AreaId[] = ["editor", "sidebar", "auxiliaryBar", "panel"];
-const SIZES: AreaSettings["size"][] = ["cover", "contain", "auto", "stretch", "tile"];
+const FIT_OPTIONS: AreaSettings["size"][] = ["cover", "contain", "auto", "stretch", "tile"];
 const POSITIONS: [string, keyof Strings][] = [
   ["center", "position_center"],
   ["top", "position_top"],
@@ -113,7 +113,6 @@ function notice(kind: "info" | "warn" | "error", text: string, buttons: string[]
   return `<div class="notice ${kind}">${icon(iconName)}<p>${escapeHtml(text)}</p>${buttons.length > 0 ? `<div class="button-row">${buttons.join("")}</div>` : ""}</div>`;
 }
 
-/** What the panel says about BackImage, damaged files and pending restarts. */
 function ownershipNotices(status: State["status"]): string[] {
   const notices: string[] = [];
   if (status.problem) {
@@ -232,8 +231,8 @@ function renderArea(id: AreaId, area: AreaSettings, current: State): string {
     <label class="field"><span>${escapeHtml(t.opacity)} <output id="opacity-${id}">${Math.round(area.opacity * 100)}%</output></span>
       <input type="range" min="0" max="1" step="0.01" value="${area.opacity}" ${attrs} data-field="opacity" data-output="opacity-${id}"></label>
     <div class="row">
-      <label class="field"><span>${escapeHtml(t.size)}</span><select ${attrs} data-field="size">${options(
-        SIZES.map((size) => [size, t[`size_${size}` as keyof Strings]]),
+      <label class="field"><span>${escapeHtml(t.fit)}</span><select ${attrs} data-field="size">${options(
+        FIT_OPTIONS.map((fit) => [fit, t[`fit_${fit}`]]),
         area.size
       )}</select></label>
       <label class="field"><span>${escapeHtml(t.position)}</span><select ${attrs} data-field="position">${options(positions, area.position)}</select></label>
@@ -249,7 +248,6 @@ function renderAreas(current: State): string {
   return `<section class="areas">${ids.map((id) => renderArea(id, current.settings.areas[id], current)).join("")}</section>`;
 }
 
-/** A button that posts `message` to the extension when clicked. */
 function messageButton(
   label: string,
   message: Record<string, unknown>,
@@ -284,7 +282,6 @@ function rotationFields(
 </div>`;
 }
 
-/** One row of an ordered image list, with buttons to move or remove it. */
 function imageRow(
   thumbnail: string | null,
   label: string,
@@ -294,7 +291,7 @@ function imageRow(
     first: boolean;
     last: boolean;
   },
-  remove: Record<string, unknown> | null
+  remove: { message: Record<string, unknown>; title: string } | null
 ): string {
   return `<li class="image-row">
   <div class="thumb small">${thumbnail ? `<img src="${escapeHtml(thumbnail)}" alt="" loading="lazy">` : icon("warning")}</div>
@@ -302,7 +299,7 @@ function imageRow(
   <span class="spacer"></span>
   ${messageButton("", moves.up, { icon: "arrow-up", title: t.moveUp, disabled: moves.first })}
   ${messageButton("", moves.down, { icon: "arrow-down", title: t.moveDown, disabled: moves.last })}
-  ${remove ? messageButton("", remove, { icon: "close", title: t.removeImage }) : ""}
+  ${remove ? messageButton("", remove.message, { icon: "close", title: remove.title }) : ""}
 </li>`;
 }
 
@@ -340,7 +337,12 @@ function renderSource(source: SourceView, index: number, total: number): string 
                 first: position === 0,
                 last: position === source.images.length - 1,
               },
-              isUrl ? null : { type: "removeSourceImage", id: source.id, file: image.file }
+              isUrl
+                ? null
+                : {
+                    message: { type: "removeSourceImage", id: source.id, file: image.file },
+                    title: t.deleteImageFile,
+                  }
             )
           )
           .join("")}</ol></div>`
@@ -364,7 +366,7 @@ function renderSource(source: SourceView, index: number, total: number): string 
       <div class="source-name">${escapeHtml(source.name)}</div>
       <div class="source-meta"><span class="badge">${escapeHtml(t[`type_${source.type}` as keyof Strings])}</span>${meta}</div>
     </div>
-    ${button("", `remove:${source.id}`, { icon: "trash", title: t.remove })}
+    ${button("", `remove:${source.id}`, { icon: "trash", title: t.removeSource })}
   </div>
   <details data-details="${escapeHtml(detailsId)}"${openDetails.has(detailsId) ? " open" : ""}>
     <summary>${escapeHtml(t.details)}</summary>
@@ -414,7 +416,10 @@ function renderPreset(preset: PresetView, current: State): string {
                 first: index === 0,
                 last: index === preset.entries.length - 1,
               },
-              { type: "removePresetImage", id: preset.id, index }
+              {
+                message: { type: "removePresetImage", id: preset.id, index },
+                title: t.removeFromPreset,
+              }
             )
           )
           .join("")}</ol>`;

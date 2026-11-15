@@ -28,9 +28,7 @@ export function workbenchPaths(appRoot: string): WorkbenchPaths {
 }
 
 /**
- * Guesses VS Code's `resources/app` folder from the executable path, for the uninstall hook,
- * which runs without the `vscode` API. Covers the classic layout, the versioned Windows
- * layout (`<install>/<commit>/resources/app`) and macOS bundles.
+ * Guesses VS Code's `resources/app` folder from the executable path, for the uninstall hook, which runs without the `vscode` API. Covers the classic layout, the versioned Windows layout (`<install>/<commit>/resources/app`) and macOS bundles.
  */
 export function appRootsFromExecPath(execPath: string): string[] {
   const exeDir = path.dirname(execPath);
@@ -53,8 +51,7 @@ export function appRootsFromExecPath(execPath: string): string[] {
 }
 
 /**
- * `resources/app` folders under a path the user gives the uninstall hook by hand: the install
- * folder, the executable, or `resources/app` itself.
+ * `resources/app` folders under a path the user gives the uninstall hook by hand: the install folder, the executable, or `resources/app` itself.
  */
 export function appRootsFromInstallPath(input: string): string[] {
   const resolved = path.resolve(input);
@@ -102,9 +99,7 @@ export function defaultInstallDirs(env: NodeJS.ProcessEnv = process.env): string
 }
 
 /**
- * UshiroE's global storage folders for a VS Code installation, which hold the recorded original
- * checksum and the pristine backup. Follows VS Code's own user data location rules, including
- * `VSCODE_APPDATA` and portable mode.
+ * UshiroE's global storage folders for a VS Code installation, which hold the recorded original checksum and the pristine backup. Follows VS Code's own user data location rules, including `VSCODE_APPDATA` and portable mode.
  */
 export function stateDirsFor(
   appRoot: string,

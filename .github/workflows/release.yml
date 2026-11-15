@@ -68,7 +68,7 @@ jobs:
         if: ${{ !inputs.dry_run && steps.bump.outputs.changed == 'true' }}
         run: npx git-cliff --unreleased --tag "${{ steps.bump.outputs.version }}" --prepend CHANGELOG.md
 
-      # Regenerates README.md/README.ja.md from base/README.base.md, so a release never ships with generated docs that drifted out of sync with their base source. Its output is included in the release commit below (git commit -am).
+      # Regenerate the README and contributing guides for the release commit.
       - name: Build documentation
         run: npm run docs:build
 

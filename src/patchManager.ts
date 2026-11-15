@@ -31,8 +31,7 @@ export type PatchReason = "enable" | "startup" | "manual";
 export type BlockedReason = "conflict" | "backImage" | "restartFirst" | "integrity" | "repairLoop";
 
 /**
- * Owns the user's consent and every change to VS Code's workbench files. Before any write it
- * checks who owns the workbench, whether the files are intact and whether a repair would loop.
+ * Owns the user's consent and every change to VS Code's workbench files. Before any write it checks who owns the workbench, whether the files are intact and whether a repair would loop.
  */
 export class PatchManager implements Disposable {
   private readonly changed = new EventEmitter<void>();
@@ -91,8 +90,7 @@ export class PatchManager implements Disposable {
   }
 
   /**
-   * Checks everything that must hold before UshiroE writes. Returns false, after telling the
-   * user when that helps, if nothing may be written now.
+   * Checks everything that must hold before UshiroE writes. Returns false, after telling the user when that helps, if nothing may be written now.
    */
   private async mayWrite(reason: PatchReason): Promise<boolean> {
     const ownership = this.ownership();
@@ -111,7 +109,7 @@ export class PatchManager implements Disposable {
       if (reason !== "startup") {
         void promptRestart(
           l10n.t(
-            "Restart VS Code first, so that BackImage is no longer running. UshiroE applies its patch after the restart."
+            "Quit and reopen VS Code to unload BackImage. UshiroE applies its patch after the restart."
           )
         );
       }
@@ -136,7 +134,7 @@ export class PatchManager implements Disposable {
     const yieldTo = l10n.t("Let BackImage Take Over");
     const choice = await window.showWarningMessage(
       l10n.t(
-        "BackImage is active and changes the same VS Code files as UshiroE. UshiroE will not change anything until BackImage is uninstalled or disabled."
+        "BackImage is active and modifies the same VS Code files. Uninstall or disable BackImage before applying the UshiroE patch."
       ),
       uninstall,
       disable,
@@ -193,7 +191,7 @@ export class PatchManager implements Disposable {
       void window
         .showWarningMessage(
           l10n.t(
-            "UshiroE's patch was removed again after it was repaired. Another extension that changes VS Code's files, such as BackImage, is probably overwriting it, so UshiroE stopped repairing it automatically."
+            "The UshiroE patch disappeared again after repair. Another extension may be overwriting the workbench file, so UshiroE stopped repairing the patch automatically."
           ),
           repair
         )
@@ -252,10 +250,10 @@ export class PatchManager implements Disposable {
         await this.markRestartNeeded(
           reason === "startup" && patchedBefore
             ? l10n.t(
-                "UshiroE re-applied its patch after a VS Code update. Restart VS Code to show the background."
+                "UshiroE reapplied its patch after the VS Code update. Restart VS Code to see the background."
               )
             : l10n.t(
-                "UshiroE is installed into VS Code. Restart VS Code (quit and open it again) to show the background."
+                "The UshiroE patch is in place. Quit and reopen VS Code to see the background."
               )
         );
       } else if (reason === "manual") {
@@ -274,7 +272,7 @@ export class PatchManager implements Disposable {
       {
         modal: true,
         detail: l10n.t(
-          "BackImage restores VS Code from these copies, which would remove UshiroE's patch and can break VS Code after an update."
+          "Restoring files from these backups can remove the UshiroE patch or overwrite files from a newer VS Code build."
         ),
       },
       remove
@@ -338,8 +336,7 @@ export class PatchManager implements Disposable {
   }
 
   /**
-   * Offers to remove a patch left by an earlier UshiroE installation that was uninstalled
-   * without removing it. Asked once; nothing is removed without the user's answer.
+   * Offers to remove a patch left by an earlier UshiroE installation that was uninstalled without removing it. Asked once; nothing is removed without the user's answer.
    */
   async offerLeftoverRemoval(): Promise<void> {
     await this.refresh();

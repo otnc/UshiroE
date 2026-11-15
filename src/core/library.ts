@@ -22,16 +22,14 @@ function shortHash(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
-/** File names only ever use ASCII, so the copies never depend on how a path is encoded. */
+/** Imported copies use ASCII filenames to avoid path encoding issues. */
 function copyName(key: string, extension: string): string {
   return `${shortHash(key)}${extension.toLowerCase()}`;
 }
 
 /**
  * Every image UshiroE shows lives in its library folder, `<Pictures>/UshiroE/<source>/`.
- * Files and folders are copied in once, when they are added, and are not linked to their
- * original afterwards; URLs are downloaded again only when asked to. Images the user puts into a
- * source's folder directly are shown as well.
+ * Files and folders are copied in once, when they are added, and are not linked to their original afterwards; URLs are downloaded again only when asked to. Images the user puts into a source's folder directly are shown as well.
  */
 export class ImageLibrary {
   constructor(
@@ -75,8 +73,7 @@ export class ImageLibrary {
   }
 
   /**
-   * File names of a source's images in display order: the listed ones first, then any image
-   * the user dropped into the source's folder. Empty until the source has been imported.
+   * File names of a source's images in display order: the listed ones first, then any image the user dropped into the source's folder. Empty until the source has been imported.
    */
   fileNames(sourceId: string): string[] {
     const manifest = this.readManifest(sourceId);
@@ -102,7 +99,7 @@ export class ImageLibrary {
     return this.fileNames(source.id).map((name) => path.join(dir, name));
   }
 
-  /** The file a preset reference points at, or null when it is gone. */
+  /** Resolves a preset image reference, or returns null if the file is missing. */
   fileOf(sourceId: string, name: string): string | null {
     const file = path.join(this.dirFor(sourceId), path.basename(name));
     return fs.existsSync(file) ? file : null;
@@ -131,8 +128,7 @@ export class ImageLibrary {
   }
 
   /**
-   * True when the source has never been imported, or when its path or options were changed,
-   * for example in `settings.json`, so it should be imported again.
+   * True when the source has never been imported, or when its path or options were changed, for example in `settings.json`, so it should be imported again.
    */
   isStale(source: ImageSource): boolean {
     const manifest = this.readManifest(source.id);
@@ -144,9 +140,7 @@ export class ImageLibrary {
   }
 
   /**
-   * Imports a source. Files and folders are copied and replace whatever an earlier import of
-   * the same source left; a URL is downloaded when `refreshUrl` is set or nothing was
-   * downloaded for it yet. When the original is unreachable the folder stays as it was.
+   * Imports a source. Files and folders are copied and replace whatever an earlier import of the same source left. A URL is downloaded when a refresh is needed or a copy is missing. If the original is unreachable, the previous files are kept.
    */
   async sync(source: ImageSource, refreshUrl: boolean): Promise<void> {
     const dir = this.dirFor(source.id);
@@ -206,8 +200,7 @@ export class ImageLibrary {
   }
 
   /**
-   * Copies one image unless an identical copy exists. The copy is named after the original
-   * path, size and modification time, so copying the same file twice keeps one copy.
+   * Copies one image unless an identical copy exists. The copy is named after the original path, size and modification time, so copying the same file twice keeps one copy.
    */
   private async copyFile(file: string, dir: string): Promise<string> {
     if (!isSupportedImage(file)) {
@@ -223,8 +216,7 @@ export class ImageLibrary {
   }
 
   /**
-   * Deletes the library folders of sources that no longer exist. Only folders that hold a
-   * manifest are touched, so anything else the user keeps under `UshiroE/` is left alone.
+   * Deletes the library folders of sources that no longer exist. Only folders that hold a manifest are touched, so anything else the user keeps under `UshiroE/` is left alone.
    */
   async prune(sources: readonly ImageSource[]): Promise<void> {
     const keep = new Set(sources.map((source) => path.basename(this.dirFor(source.id))));

@@ -58,8 +58,7 @@ function decode(bytes: Buffer, file: string): string {
 }
 
 /**
- * Every change UshiroE makes to VS Code's installation goes through here: under a lock shared
- * by all windows, after re-reading the files, only on a known-good base, and atomically.
+ * Every change UshiroE makes to VS Code's installation goes through here: under a lock shared by all windows, after re-reading the files, only on a known-good base, and atomically.
  */
 export class WorkbenchEditor {
   readonly paths: WorkbenchPaths;
@@ -197,9 +196,7 @@ export class WorkbenchEditor {
   }
 
   /**
-   * Installs `block` in place of any UshiroE or BackImage block. Returns whether the script
-   * changed. With `hideCorruptWarning` the checksum covers the patched script; otherwise it
-   * stays VS Code's own.
+   * Installs `block` in place of any UshiroE or BackImage block. Returns whether the script changed. With `hideCorruptWarning` the checksum covers the patched script; otherwise it stays VS Code's own.
    */
   apply(block: string, hideCorruptWarning: boolean): Promise<boolean> {
     return this.locked(async (snapshot, good) => {
@@ -249,8 +246,8 @@ export class WorkbenchEditor {
   }
 
   /**
-   * Puts VS Code's workbench back: from the saved pristine copy when its hash matches the
-   * recorded original, otherwise by removing UshiroE's block.
+   * Restores the saved workbench file if its checksum matches the recorded original.
+   * If the backup cannot be verified, removes UshiroE's block from a verified workbench file.
    */
   restore(): Promise<RestoreResult> {
     return withLock(this.lockPath, async () => {

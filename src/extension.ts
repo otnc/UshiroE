@@ -112,7 +112,7 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
   void (async () => {
     await patch.offerLeftoverRemoval();
     if (wasEnabled) {
-      // Right after BackImage stopped, the patch is due regardless of the repair limit.
+      // The first patch after unloading BackImage is exempt from the automatic repair limit.
       await patch.ensure((await migration.takePatchAfterRestart()) ? "enable" : "startup");
     }
   })();

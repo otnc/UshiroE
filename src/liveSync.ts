@@ -4,7 +4,7 @@ import { type ImageResolver, buildLiveConfig } from "./core/resolve";
 import type { LiveStore } from "./liveStore";
 import { readSettings } from "./settings";
 
-/** Keeps the live config the workbench polls in step with the settings and the image library. */
+/** Publishes background settings and image library changes to the workbench. */
 export class LiveSync implements Disposable {
   private readonly changed = new EventEmitter<void>();
   readonly onDidChange = this.changed.event;
@@ -28,7 +28,7 @@ export class LiveSync implements Disposable {
       await this.store.write(buildLiveConfig(readSettings(), this.cycle, this.resolver));
     } catch (error) {
       void window.showErrorMessage(
-        l10n.t("UshiroE could not save its live configuration: {0}", String(error))
+        l10n.t("Could not save the background configuration: {0}", String(error))
       );
     }
     this.changed.fire();

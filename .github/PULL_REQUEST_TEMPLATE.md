@@ -2,7 +2,7 @@
 
 ## Summary
 
-<!-- What changed and why. Link the issue it closes, if any: "Closes #123" -->
+<!-- Describe what changed and why. If the PR closes an issue, link it: "Closes #123" -->
 
 ## Test plan
 

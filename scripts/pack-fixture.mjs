@@ -1,6 +1,5 @@
-// Packs the BackImage test double into out/backimage-fixture.vsix, so the integration tests can
-// install it as a normal extension. Only installed extensions can be turned off with
-// --disable-extension; one loaded through --extensionDevelopmentPath always runs.
+// Package the BackImage fixture so integration tests can install and disable it.
+// `--disable-extension` does not affect extensions loaded with `--extensionDevelopmentPath`.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
