@@ -3,6 +3,7 @@ import {
   type AreaId,
   type AreaSettings,
   type ImageSource,
+  MAX_OPACITY,
   type Mode,
   PRESET_PREFIX,
   type Preset,
@@ -239,7 +240,7 @@ function renderArea(id: AreaId, area: AreaSettings, current: State): string {
       : `<div class="card-body">
     <label class="field"><span>${escapeHtml(t.image)}</span><select ${attrs} data-field="source">${imageSelect}</select></label>
     <label class="field"><span>${escapeHtml(t.opacity)} <output id="opacity-${id}">${Math.round(area.opacity * 100)}%</output></span>
-      <input type="range" min="0" max="1" step="0.01" value="${area.opacity}" ${attrs} data-field="opacity" data-output="opacity-${id}"></label>
+      <input type="range" min="0" max="${MAX_OPACITY}" step="0.01" value="${area.opacity}" ${attrs} data-field="opacity" data-output="opacity-${id}"></label>
     <div class="row">
       <label class="field"><span>${escapeHtml(t.fit)}</span><select ${attrs} data-field="size">${options(
         FIT_OPTIONS.map((fit) => [fit, t[`fit_${fit}`]]),

@@ -7,6 +7,7 @@ import {
   DEFAULT_INTERVAL_SECONDS,
   type ImageSource,
   MODES,
+  MAX_OPACITY,
   type Mode,
   PRESET_PREFIX,
   type Preset,
@@ -101,7 +102,7 @@ export function normalizeArea(id: AreaId, raw: unknown): AreaSettings {
           ? raw.enabled
           : fallback.enabled,
     source: nonEmptyString(raw.source),
-    opacity: clamp(finiteNumber(raw.opacity, fallback.opacity), 0, 1),
+    opacity: clamp(finiteNumber(raw.opacity, fallback.opacity), 0, MAX_OPACITY),
     size: oneOf<Size>(SIZES, raw.size, fallback.size),
     position: nonEmptyString(raw.position) ?? fallback.position,
     blur: clamp(finiteNumber(raw.blur, fallback.blur), 0, 200),

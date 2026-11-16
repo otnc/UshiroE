@@ -32,7 +32,7 @@
   "config.panel": "パネルの背景です。`#ushiroe.mode#` が `parts` のときに使います。",
   "config.area.enabled": "このエリアに背景を表示します。",
   "config.area.source": "ソースの ID、すべての画像を表す `*`、プリセットを表す `preset:<id>` を指定します。画像を表示しない場合は `null` を指定します。",
-  "config.area.opacity": "画像の不透明度です。0 で透明、1 で不透明になります。",
+  "config.area.opacity": "画像の不透明度です。0 で透明になり、最大は 0.8 です。これより高いと画像で UI が見えなくなるため、上限を設けています。",
   "config.area.size": "エリア内での画像のフィット方法です。",
   "config.area.position": "CSS の `background-position` の値です。例：`center`、`right bottom`。",
   "config.area.blur": "ぼかしの半径をピクセル単位で指定します。",

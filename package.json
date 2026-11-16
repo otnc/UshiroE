@@ -408,7 +408,7 @@
             "opacity": {
               "type": "number",
               "minimum": 0,
-              "maximum": 1,
+              "maximum": 0.8,
               "description": "%config.area.opacity%"
             },
             "size": {
@@ -461,7 +461,7 @@
             "opacity": {
               "type": "number",
               "minimum": 0,
-              "maximum": 1,
+              "maximum": 0.8,
               "description": "%config.area.opacity%"
             },
             "size": {
@@ -515,7 +515,7 @@
             "opacity": {
               "type": "number",
               "minimum": 0,
-              "maximum": 1,
+              "maximum": 0.8,
               "description": "%config.area.opacity%"
             },
             "size": {
@@ -569,7 +569,7 @@
             "opacity": {
               "type": "number",
               "minimum": 0,
-              "maximum": 1,
+              "maximum": 0.8,
               "description": "%config.area.opacity%"
             },
             "size": {
@@ -623,7 +623,7 @@
             "opacity": {
               "type": "number",
               "minimum": 0,
-              "maximum": 1,
+              "maximum": 0.8,
               "description": "%config.area.opacity%"
             },
             "size": {
