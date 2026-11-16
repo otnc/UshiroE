@@ -168,5 +168,8 @@
   "When should UshiroE download this image?": "この画像をいつダウンロードしますか？",
   "Which profile should UshiroE import BackImage settings from?": "BackImage の設定をインポートするプロファイルを選んでください。",
   "{0} images": "{0} 枚",
-  "{0} of them could not be found on disk.": "そのうち {0} 件のファイルが見つかりませんでした。"
+  "{0} of them could not be found on disk.": "そのうち {0} 件のファイルが見つかりませんでした。",
+  "Revert": "元に戻す",
+  "The background is now very opaque and may hide the UI. It goes back in {0} seconds unless you keep it.": "背景の不透明度が高く、UI が見えにくくなっているかもしれません。残さない場合は {0} 秒後に元に戻ります。",
+  "UshiroE lowered the background opacity because the change was not confirmed.": "変更が確認されなかったため、背景の不透明度を下げました。"
 }

@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   DEFAULT_INTERVAL_SECONDS,
   type ImageSource,
+  MAX_OPACITY,
   type PartId,
   type UshiroeSettings,
   defaultSettings,
@@ -31,7 +32,7 @@ const PART_NAMES: Record<string, PartId> = {
 };
 
 function clampOpacity(value: number): number {
-  return clamp(value, 0, 1);
+  return clamp(value, 0, MAX_OPACITY);
 }
 
 /**

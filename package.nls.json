@@ -32,7 +32,7 @@
   "config.panel": "Background for the panel, used when `#ushiroe.mode#` is `parts`.",
   "config.area.enabled": "Show a background in this area.",
   "config.area.source": "Select a source ID, `*` for all images, `preset:<id>` for a preset, or `null` for no image.",
-  "config.area.opacity": "Image opacity: 0 is invisible and 1 is fully opaque.",
+  "config.area.opacity": "Image opacity, from 0 (invisible) to 0.8. Higher values would hide the UI behind the image.",
   "config.area.size": "How the image fits inside the area.",
   "config.area.position": "CSS `background-position` value, such as `center` or `right bottom`.",
   "config.area.blur": "Blur radius in pixels.",

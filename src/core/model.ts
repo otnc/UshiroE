@@ -33,6 +33,12 @@ export const PRESET_PREFIX = "preset:";
 
 export const DEFAULT_INTERVAL_SECONDS = 10;
 
+/** Highest allowed image opacity. Above this the image hides the UI, including the controls to lower it again. */
+export const MAX_OPACITY = 0.8;
+
+/** Raising a visible area above this opacity asks the user to keep it, and reverts it when they do not answer. */
+export const CONFIRM_OPACITY = 0.5;
+
 /** Image rotation settings shared by sources, presets, and the All images option. */
 export interface Rotation {
   /** Pick the next image at random instead of in order. */
@@ -60,7 +66,7 @@ export interface AreaSettings {
   enabled: boolean;
   /** A source id, {@link ALL_SOURCES}, {@link PRESET_PREFIX} + a preset id, or null. */
   source: string | null;
-  /** How strongly the image shows through, from 0 (invisible) to 1 (opaque). */
+  /** How strongly the image shows through, from 0 (invisible) to {@link MAX_OPACITY}. */
   opacity: number;
   size: Size;
   position: string;

@@ -19,7 +19,7 @@ describe("normalizeSettings", () => {
     });
     expect(settings.mode).toBe("fullscreen");
     expect(settings.sources).toEqual([]);
-    expect(settings.areas.fullscreen.opacity).toBe(1);
+    expect(settings.areas.fullscreen.opacity).toBe(0.8);
     expect(settings.areas.fullscreen.size).toBe("cover");
   });
 

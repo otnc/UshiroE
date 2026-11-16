@@ -13,6 +13,7 @@ import { LibraryManager } from "./libraryManager";
 import { LiveStore } from "./liveStore";
 import { LiveSync } from "./liveSync";
 import { BackImageMigration } from "./migration/backimageFlow";
+import { OpacityGuard } from "./opacityGuard";
 import { PatchManager } from "./patchManager";
 import { Patcher } from "./patcher";
 import { deletePreset, newPreset } from "./presetCommands";
@@ -45,6 +46,7 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
   const live = new LiveSync(store, library.resolver);
   const migration = new BackImageMigration(context, patch);
   const panel = new PanelViewProvider(context.extensionUri, patch, library, live, migration);
+  const opacityGuard = new OpacityGuard();
 
   let wasEnabled = readSettings().enabled;
   context.subscriptions.push(
@@ -52,6 +54,7 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
     library,
     live,
     panel,
+    opacityGuard,
     library.onDidChange(() => live.schedule()),
     window.registerWebviewViewProvider(PanelViewProvider.viewId, panel),
     workspace.onDidChangeConfiguration((event) => {
@@ -59,6 +62,7 @@ export async function activate(context: ExtensionContext): Promise<UshiroeApi> {
         return;
       }
       live.schedule();
+      opacityGuard.settingsChanged();
       void library.settingsChanged();
       if (event.affectsConfiguration(`${SECTION}.backImage.priority`)) {
         void patch.refresh();
