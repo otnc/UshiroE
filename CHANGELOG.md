@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.0]
+
+### Fixed
+
+- Cap background opacity and confirm high values before keeping them
+
 ## [0.1.2]
 
 ### Added
