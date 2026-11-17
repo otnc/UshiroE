@@ -24,6 +24,9 @@ export function cssUrl(url: string): string {
 /** Height of the custom title bar (File, Edit, ...), kept up to date by the runtime. */
 export const TITLEBAR_HEIGHT_VARIABLE = "--ushiroe-titlebar-height";
 
+/** Set on the root element once the workbench is laid out and {@link TITLEBAR_HEIGHT_VARIABLE} holds its final value. */
+export const LAYOUT_READY_ATTRIBUTE = "data-ushiroe-layout-ready";
+
 /**
  * Where the layer sits. The fullscreen layer starts below the title bar, so the menu bar stays clear. Blur pulls transparent pixels in from outside the box: the fullscreen layer bleeds past the window edges to hide that soft edge and is clipped back at the title bar; a part layer cannot bleed, because it would cover its neighbours.
  */
@@ -43,6 +46,10 @@ function areaRule(area: LiveArea): string {
   const isFullscreen = area.id === "fullscreen";
   const blur = area.blur > 0 ? `filter: blur(${area.blur}px);` : "";
   const selector = `[${BACKGROUND_ATTRIBUTE}="${area.id}"]`;
+  // Until the title bar is measured, the fullscreen layer would start at the window top and visibly jump down.
+  const hideUntilLaidOut = isFullscreen
+    ? `\n:root:not([${LAYOUT_READY_ATTRIBUTE}]) ${selector} {\n  visibility: hidden;\n}`
+    : "";
   return `${selector} {
   ${placement(area)}
   pointer-events: none;
@@ -58,7 +65,7 @@ ${selector} > div {
   mix-blend-mode: plus-lighter;
   background-position: ${sanitizePosition(area.position)};
   ${SIZE_RULES[area.size]}
-}`;
+}${hideUntilLaidOut}`;
 }
 
 export function buildCss(config: LiveConfig): string {

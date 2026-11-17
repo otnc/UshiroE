@@ -224,6 +224,22 @@ describe("buildCss", () => {
     expect(blurred).toContain("clip-path: inset(10px 0 0 0)");
   });
 
+  it("hides only the full-window layer until the title bar is measured", () => {
+    const hidden = ":root:not([data-ushiroe-layout-ready])";
+    const fullscreen = { ...area, id: "fullscreen" as const };
+    const css = buildCss({
+      v: 1,
+      enabled: true,
+      transition: 1,
+      areas: [fullscreen, area],
+      cycle: 0,
+    });
+    expect(css).toContain(
+      `${hidden} [data-ushiroe-background="fullscreen"] {\n  visibility: hidden;`
+    );
+    expect(css).not.toContain(`${hidden} [data-ushiroe-background="editor"]`);
+  });
+
   it("cannot be broken out of by a custom position", () => {
     expect(sanitizePosition("center; } body { display: none")).toBe("center  body  display: none");
     expect(sanitizePosition(";;")).toBe("center");

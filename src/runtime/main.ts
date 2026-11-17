@@ -1,7 +1,7 @@
 import { LIVE_CONFIG_VERSION, type LiveArea, type LiveConfig } from "../core/live";
 import type { AreaId } from "../core/model";
 import { createBackground } from "./background";
-import { TITLEBAR_HEIGHT_VARIABLE, buildCss } from "./css";
+import { LAYOUT_READY_ATTRIBUTE, TITLEBAR_HEIGHT_VARIABLE, buildCss } from "./css";
 
 export interface RuntimeBoot {
   /** `vscode-file:` URL of the live config JSON written by the extension. */
@@ -59,8 +59,17 @@ function pickNextIndex(state: AreaState): number {
   return (state.index + offset) % count;
 }
 
+/** Shows the fullscreen layer anyway if the workbench never reports a layout, so the background cannot stay hidden. */
+const LAYOUT_READY_FALLBACK_MS = 5000;
+
+/** The workbench gives its parts a size in the same task that sizes the title bar, so a sized editor part means the title bar can be measured. */
+function isWorkbenchLaidOut(): boolean {
+  const editor = document.getElementById(PART_IDS.editor);
+  return editor !== null && editor.getBoundingClientRect().height > 0;
+}
+
 /**
- * Keeps {@link TITLEBAR_HEIGHT_VARIABLE} equal to the bottom edge of the custom title bar, or 0 when VS Code uses the native one. The title bar is created after this script runs and can be rebuilt when the layout changes, so it is looked up again periodically.
+ * Keeps {@link TITLEBAR_HEIGHT_VARIABLE} equal to the bottom edge of the custom title bar, or 0 when VS Code uses the native one, and sets {@link LAYOUT_READY_ATTRIBUTE} once that value is final. The title bar is created after this script runs, so it is looked up every frame until the workbench is laid out; it can also be rebuilt when the layout changes, so it is looked up again periodically after that.
  */
 function trackTitlebar(root: HTMLElement): void {
   let observed: Element | null = null;
@@ -83,7 +92,24 @@ function trackTitlebar(root: HTMLElement): void {
     }
     update();
   };
-  attach();
+  const markReady = () => {
+    attach();
+    root.setAttribute(LAYOUT_READY_ATTRIBUTE, "");
+  };
+  // requestAnimationFrame runs before the frame is painted, so the layer is revealed in the same frame the title bar gets its height.
+  const waitForLayout = () => {
+    if (root.hasAttribute(LAYOUT_READY_ATTRIBUTE)) {
+      return;
+    }
+    if (isWorkbenchLaidOut()) {
+      markReady();
+      return;
+    }
+    attach();
+    requestAnimationFrame(waitForLayout);
+  };
+  waitForLayout();
+  setTimeout(markReady, LAYOUT_READY_FALLBACK_MS);
   setInterval(attach, 2000);
 }
 
