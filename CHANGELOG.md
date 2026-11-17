@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.2.1]
+
+### Fixed
+
+- Implement layout readiness handling in CSS
+
 ## [0.2.0]
 
 ### Fixed
